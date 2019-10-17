@@ -1,6 +1,6 @@
 FROM ubuntu:latest
 
-RUN apt-get update && apt-get install -y curl apt-transport-https ca-certificates software-properties-common gnupg-agent vim zip
+RUN apt-get update && apt-get install -y curl apt-transport-https ca-certificates software-properties-common gnupg-agent vim zip jq
 
 # Install Kind
 RUN curl -Lo ./kind https://github.com/kubernetes-sigs/kind/releases/download/v0.5.1/kind-$(uname)-amd64 && \

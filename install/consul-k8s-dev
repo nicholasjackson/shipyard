@@ -71,7 +71,7 @@ function install_consul() {
   done
 
   # Get a root ACL token and write to disk
-  kubectl get secret consul-consul-bootstrap-acl-token -o json | jq -r .data.token > consul_acl.token 
+  # kubectl get secret consul-consul-bootstrap-acl-token -o json | jq -r .data.token > consul_acl.token 
 }
 
 function install_smi() {
