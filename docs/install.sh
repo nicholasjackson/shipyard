@@ -5,8 +5,9 @@ echo "## Installing Consul K8s"
 echo ""
 
 echo "### Remove existing install"
-rm -rf $HOME/.consul_k8s
-rm -f /usr/local/bin/consul-k8s-dev
+echo "#### You may be prompted for your password!###"
+sudo rm -rf $HOME/.consul_k8s
+sudo rm -f /usr/local/bin/consul-k8s-dev
 echo ""
 
 echo "### Download application"
