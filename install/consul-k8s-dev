@@ -2,11 +2,11 @@
 export KUBECONFIG="$(pwd)/kubeconfig.yml"
 
 function up() {
-  docker run --network host -it -v "/var/run/docker.sock:/var/run/docker.sock" -v "$HOME/.consul_k8s:/files" -w "/files" nicholasjackson/consul-k8s-tools:latest bash -c "./run.sh create"
+  docker run --network host -it -v "/var/run/docker.sock:/var/run/docker.sock" -v "$HOME/.consul_k8s:/files" -w "/files" nicholasjackson/consul-k8s-tools:latest bash -c "./consul-k8s-dev create"
 }
 
 function down() {
-  docker run -it -v "/var/run/docker.sock:/var/run/docker.sock" -v "$HOME/.consul_k8s:/files" -w "/files" nicholasjackson/consul-k8s-tools:latest bash -c "./run.sh destroy"
+  docker run -it -v "/var/run/docker.sock:/var/run/docker.sock" -v "$HOME/.consul_k8s:/files" -w "/files" nicholasjackson/consul-k8s-tools:latest bash -c "./consul-k8s-dev destroy"
 }
 
 function tools() {
