@@ -24,6 +24,10 @@ To a local Kubernetes cluster run:
 consul-k8s-dev up
 ```
 
+## Demo
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/FK0LtLDQLJc" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
 ## Running Consul and Kubernetes locally
 To start a Kubernetes cluster in Docker with Consul pre-installed run the following command:
 
