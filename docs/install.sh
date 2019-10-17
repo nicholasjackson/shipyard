@@ -6,8 +6,8 @@ echo ""
 
 echo "### Remove existing install"
 echo "#### You may be prompted for your password!###"
-sudo rm -rf $HOME/.consul_k8s
 sudo rm -f /usr/local/bin/consul-k8s-dev
+sudo rm -rf $HOME/.consul_k8s
 echo ""
 
 echo "### Download application"
