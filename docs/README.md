@@ -1,5 +1,7 @@
-# Consul K8s Dev
-Run Consul and Kubernetes locally in Docker
+# Consul K8s Dev - Beta
+Run disposable Consul Service Mesh and Kubernetes environments locally in Docker.
+
+**Note:** This tool has currently been tested on Mac OS Catalina, Linux support should work but has not been tested yet.
 
 ## Installation
 To install run the following command in your terminal:
