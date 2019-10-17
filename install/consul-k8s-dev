@@ -10,7 +10,7 @@ function down() {
 }
 
 function tools() {
-  docker run --rm -it --network host -v /var/run/docker.sock:/var/run/docker.sock -v $HOME:/files -w /files -e "KUBECONFIG=/files/kubeconfig.yml" nicholasjackson/consul-k8s-tools:latest bash
+  docker run --rm -it --network host -v /var/run/docker.sock:/var/run/docker.sock -v $HOME/.consul_k8s:/files -w /files -e "KUBECONFIG=/files/kubeconfig.yml" nicholasjackson/consul-k8s-tools:latest bash
 }
 
 function destroy() {

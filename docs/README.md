@@ -6,6 +6,9 @@ To install run the following command in your terminal:
 
 ```
 ➜ curl http://consul-k8s.demo.gs/install.sh | bash
+```
+
+```
   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
                                  Dload  Upload   Total   Spent    Left  Speed
 100   555  100   555    0     0   2381      0 --:--:-- --:--:-- --:--:--  2381
@@ -26,6 +29,9 @@ To start a Kubernetes cluster in Docker with Consul pre-installed run the follow
 
 ```
 ➜ consul-k8s-dev up
+```
+
+```
 Creating K8s cluster in Docker and installing Consul
 Starting test environment, this process will take approximately 2 minutes
 Creating cluster "kind" ...
@@ -47,6 +53,17 @@ When finished use ./run.sh down to cleanup and remove resources
 
 ```
 ➜ consul-k8s-dev down
+```
+
+```
 Stopping Kubernetes and cleaning resources
 Deleting cluster "kind" ...
+```
+
+## Tools
+If you do not have `kubectl` or `consul` installed you can use the built in tools. The tools run in an interactive
+Docker shell and can be accessed by running the command:
+
+```
+
 ```
