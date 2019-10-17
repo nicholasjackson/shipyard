@@ -18,10 +18,14 @@ Installing Consul K8s
 
 #...
 
-Remove existing install
-Copying config
-Instalation complete
-To a local Kubernetes cluster run:
+
+### Install application config to /Users/nicj/.consul_k8s
+
+### Linking application to /usr/local/bin
+#### You may be prompted for your password!###
+
+## Instalation complete
+To create a local Kubernetes and Consul cluster run:
 
 consul-k8s-dev up
 ```
@@ -38,21 +42,35 @@ To start a Kubernetes cluster in Docker with Consul pre-installed run the follow
 ```
 
 ```bash
-Creating K8s cluster in Docker and installing Consul
-Starting test environment, this process will take approximately 2 minutes
+## Creating K8s cluster in Docker and installing Consul
+
+### Creating Kubernetes cluster, this process will take approximately 2 minutes
+#### Create Kubernetes cluster in Docker
+
 Creating cluster "kind" ...
  ✓ Ensuring node image (kindest/node:v1.15.3) 🖼
+ ✓ Preparing nodes 📦📦
+ ✓ Creating kubeadm config 📜
+ ✓ Starting control-plane 🕹️
+ ✓ Installing CNI 🔌
+ ✓ Installing StorageClass 💾
+ ✓ Joining worker nodes 🚜
+Cluster creation complete. You can now use the cluster with:
+
+export KUBECONFIG="$(kind get kubeconfig-path --name="kind")"
+kubectl cluster-info
+#### Waiting for Kubernetes to start
 
 #...
 
-Setup complete:
+### Setup complete:
 
 To interact with Kubernetes set your KUBECONFIG environment variable
-export KUBECONFIG=\"$HOME/.consul_k8s/kubeconfig.yml
+export KUBECONFIG="$HOME/.consul_k8s/kubeconfig.yml"
 
 Consul can be accessed at: http://localhost:8500
 
-When finished use ./run.sh down to cleanup and remove resources
+When finished use "consul-k8s-dev down" to cleanup and remove resources
 ```
 
 ## Removing your dev cluster
