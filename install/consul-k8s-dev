@@ -134,7 +134,7 @@ case "$1" in
     echo "### Setup complete:";
     echo "";
     echo "To interact with Kubernetes set your KUBECONFIG environment variable";
-    echo "export KUBECONFIG=\"$HOME/.consul_k8s/kubeconfig.yml\"";
+    echo 'export KUBECONFIG="$HOME/.consul_k8s/kubeconfig.yml"';
     echo "";
     echo "Consul can be accessed at: http://localhost:8500";
     echo "";
