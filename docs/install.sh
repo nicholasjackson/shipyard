@@ -14,3 +14,8 @@ rm -f /usr/local/bin/consul-k8s-dev
 echo "Copying config"
 mv /tmp/consul-k8s-dev-$VERSION/install $HOME/.consul_k8s
 ln -s $HOME/.consul_k8s/consul-k8s-dev /usr/local/bin
+
+echo "Instalation complete"
+echo "To a local Kubernetes cluster run:"
+echo ""
+echo "consul-k8s-dev up"
