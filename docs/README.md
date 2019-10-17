@@ -6,11 +6,11 @@ Run disposable Consul Service Mesh and Kubernetes environments locally in Docker
 ## Installation
 To install run the following command in your terminal:
 
-```
+```bash
 ➜ curl http://consul-k8s.demo.gs/install.sh | bash
 ```
 
-```
+```bash
   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
                                  Dload  Upload   Total   Spent    Left  Speed
 100   555  100   555    0     0   2381      0 --:--:-- --:--:-- --:--:--  2381
@@ -33,11 +33,11 @@ consul-k8s-dev up
 ## Running Consul and Kubernetes locally
 To start a Kubernetes cluster in Docker with Consul pre-installed run the following command:
 
-```
+```bash
 ➜ consul-k8s-dev up
 ```
 
-```
+```bash
 Creating K8s cluster in Docker and installing Consul
 Starting test environment, this process will take approximately 2 minutes
 Creating cluster "kind" ...
@@ -57,11 +57,11 @@ When finished use ./run.sh down to cleanup and remove resources
 
 ## Removing your dev cluster
 
-```
+```bash
 ➜ consul-k8s-dev down
 ```
 
-```
+```bash
 Stopping Kubernetes and cleaning resources
 Deleting cluster "kind" ...
 ```
@@ -71,7 +71,7 @@ If you do not have `kubectl` or `consul` installed you can use the built in tool
 Docker shell and can be accessed by running the `tools` sub command with an optional path which is mapped to the 
 container `/work` folder. If no path is specified then the current path is mapped to work.
 
-```
+```bash
 ➜ consul-k8s-dev tools $GOPATH/src/github.com/nicholasjackson/demo-consul-service-mesh/kubernetes/traffic_splitting
 Running tools container
 
