@@ -4,7 +4,7 @@ VERSION=0.1.1
 echo "Installing Consul K8s"
 
 echo "Copy Assets"
-wget https://github.com/nicholasjackson/consul-k8s-dev/archive/v0.1.0.tar.gz -O /tmp/consul-k8s.tar.gz
+wget https://github.com/nicholasjackson/consul-k8s-dev/archive/v$VERSION.tar.gz -O /tmp/consul-k8s.tar.gz
 tar -zxf /tmp/consul-k8s.tar.gz -C /tmp/
 
 echo "Remove existing install"
