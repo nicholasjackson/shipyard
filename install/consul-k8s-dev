@@ -96,7 +96,14 @@ function install_smi() {
   kubectl apply -f ./config/k8s_config
 }
 
-
+function uninstall() {
+  echo "### Uninstalling consul-k8s-dev"
+  echo "#### You may be prompted for your password!###"
+  echo ""
+  
+  sudo rm -rf $HOME/.consul_k8s
+  sudo rm -f /usr/local/bin/consul-k8s-dev
+}
 
 function vs_code() {
   echo "Starting VS Code"
@@ -141,6 +148,9 @@ case "$1" in
     echo "";
     tools $2;
     ;;
+  "uninstall")
+    uninstall;
+    ;;
   "vscode")
     echo "## Starting VSCode in a browser"
     vs_code;
@@ -151,6 +161,7 @@ case "$1" in
     echo "  down          - Stop K8s server"
     echo "  tools [path]  - Run tools container"
     echo "  vscode        - Run VS Code in a browser"
+    echo "  uninstall     - Remove consul-k8s-dev from this machine"
     exit 1 
     ;;
 esac
