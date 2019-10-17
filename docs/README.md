@@ -7,7 +7,7 @@ Run disposable Consul Service Mesh and Kubernetes environments locally in Docker
 To install run the following command in your terminal:
 
 ```bash
-➜ curl http://consul-k8s.demo.gs/install.sh | bash
+➜ curl https://consul-k8s.demo.gs/install.sh | bash
 ```
 
 ```bash
