@@ -10,7 +10,14 @@ function down() {
 }
 
 function tools() {
-  docker run --rm -it --network host -v /var/run/docker.sock:/var/run/docker.sock -v $HOME/.consul_k8s:/files -w /files -e "KUBECONFIG=/files/kubeconfig.yml" nicholasjackson/consul-k8s-tools:latest bash
+  FOLDER="-v $(pwd):/work"
+
+  if [[ ! -z $1 ]]; then
+    echo "Mapping local folder to tools container"
+    FOLDER="-v $1:/work"
+  fi;
+
+  docker run --rm -it --network host -v /var/run/docker.sock:/var/run/docker.sock -v $HOME/.consul_k8s:/files $FOLDER -w /work -e "KUBECONFIG=/files/kubeconfig.yml" nicholasjackson/consul-k8s-tools:latest bash
 }
 
 function destroy() {
@@ -117,7 +124,7 @@ case "$1" in
   "tools")
     echo "Running tools container";
     echo "";
-    tools;
+    tools $2;
     ;;
   "vscode")
     echo "Starting VSCode in a browser"
@@ -127,7 +134,7 @@ case "$1" in
     echo "Options"
     echo "  up            - Start K8s server"
     echo "  down          - Stop K8s server"
-    echo "  tools         - Run tools container"
+    echo "  tools [path]  - Run tools container"
     echo "  vscode        - Run VS Code in a browser"
     exit 1 
     ;;

@@ -62,8 +62,22 @@ Deleting cluster "kind" ...
 
 ## Tools
 If you do not have `kubectl` or `consul` installed you can use the built in tools. The tools run in an interactive
-Docker shell and can be accessed by running the command:
+Docker shell and can be accessed by running the `tools` sub command with an optional path which is mapped to the 
+container `/work` folder. If no path is specified then the current path is mapped to work.
 
 ```
+➜ consul-k8s-dev tools $GOPATH/src/github.com/nicholasjackson/demo-consul-service-mesh/kubernetes/traffic_splitting
+Running tools container
 
+Mapping local folder to tools container
+root@docker-desktop:/work# kubectl get pods
+NAME                                                              READY   STATUS      RESTARTS   AGE
+api-deployment-v1-5bd59988f8-sfx46                                2/2     Running     0          11m
+api-deployment-v2-6dd66bdb6f-h6m92                                2/2     Running     0          11m
+central-config-split-fmb4m                                        0/1     Completed   0          11m
+consul-consul-connect-injector-webhook-deployment-c46d9888vzkpb   1/1     Running     0          22m
+consul-consul-qpj6v                                               1/1     Running     0          22m
+consul-consul-server-0                                            1/1     Running     0          22m
+web-deployment-66488ddb9-vsf4n                                    2/2     Running     0          11m
+root@docker-desktop:/work#
 ```
