@@ -13,7 +13,7 @@ function tools() {
   FOLDER="-v $(pwd):/work"
 
   if [[ ! -z $1 ]]; then
-    echo "Mapping local folder to tools container"
+    echo "#### Mapping local folder to tools container"
     FOLDER="-v $1:/work"
   fi;
 
@@ -25,6 +25,9 @@ function destroy() {
 }
 
 function install_kind() {
+	echo "#### Create Kubernetes cluster in Docker"
+  echo ""
+
 	kind create cluster --config ./config/config.yml
 
   # Export KubeConfig
@@ -33,40 +36,51 @@ function install_kind() {
 
 function install_core() {
 	# Wait for cluster to be available
+	echo "#### Waiting for Kubernetes to start"
+  echo ""
+
 	until $(kubectl get pods); do
-		echo "Waiting for Kubernetes to start"
 		sleep 1
 	done
 
+	echo "#### Install local storage controller for Kubernetes"
+  echo ""
 	# Add storage
 	kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/master/deploy/local-path-storage.yaml
 	kubectl get storageclass
 
+	echo "#### Configure RBAC for Helm tiller" 
+  echo ""
 	# Create tiller service account
 	kubectl -n kube-system create serviceaccount tiller
 
 	# Create cluster role binding for tiller
 	kubectl create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
 
+	echo "#### Install Helm tiller" 
+  echo ""
 	# Initialize tiller and wait for complete
 	helm init --wait --service-account tiller
 }
 
 function install_consul() {
-  echo "Installing Consul"
+  echo "#### Installing Consul using latest Helm chart"
+  echo ""
 
 	# Install the Consul helm chart	
 	helm install -n consul ./config/helm-charts/consul-helm-0.9.0
 
   # Wait for Consul server to be ready
+  echo "#### Waiting for Consul server to start"
+  echo ""
   until kubectl get pods -l component=server --field-selector=status.phase=Running | grep "/1" | grep -v "0/"; do
-    echo "Waiting for Consul server to start"
     sleep 1
   done
   
   # Wait for Consul client to be ready
+  echo "#### Waiting for Consul client to start"
+  echo ""
   until kubectl get pods -l component=client --field-selector=status.phase=Running | grep "/1" | grep -v "0/"; do
-    echo "Waiting for Consul client to start"
     sleep 1
   done
 
@@ -75,7 +89,8 @@ function install_consul() {
 }
 
 function install_smi() {
-  echo "Install SMI"
+  echo "#### Install SMI"
+  echo ""
 
   # Install the CRDs for the controller
   kubectl apply -f ./config/k8s_config
@@ -92,24 +107,24 @@ function vs_code() {
 
 case "$1" in
   "up")
-    echo "Creating K8s cluster in Docker and installing Consul"
+    echo "## Creating K8s cluster in Docker and installing Consul"
+    echo ""
     up;
     ;;
   "down")
-    echo "Stopping Kubernetes and cleaning resources"
+    echo "## Stopping Kubernetes and cleaning resources"
     down;
     ;;
   "create")
-    echo "Starting test environment, this process will take approximately 2 minutes";
+    echo "### Creating Kubernetes cluster, this process will take approximately 2 minutes";
     sleep 5
     install_kind;
-    echo "Installing and configuring environment";
     install_core;
     install_consul;
     install_smi;
 
     echo "";
-    echo "Setup complete:";
+    echo "### Setup complete:";
     echo "";
     echo "To interact with Kubernetes set your KUBECONFIG environment variable";
     echo "export KUBECONFIG=\"$HOME/.consul_k8s/kubeconfig.yml\"";
@@ -122,12 +137,12 @@ case "$1" in
     destroy;
     ;;
   "tools")
-    echo "Running tools container";
+    echo "## Running tools container";
     echo "";
     tools $2;
     ;;
   "vscode")
-    echo "Starting VSCode in a browser"
+    echo "## Starting VSCode in a browser"
     vs_code;
     ;;
   *)
