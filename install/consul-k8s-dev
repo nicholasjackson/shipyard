@@ -44,8 +44,8 @@ function tools() {
       -w /work \
       -e "KUBECONFIG=/files/kubeconfig-docker.yml" \
       -e "CONSUL_HTTP_ADDR=http://kind-worker:30443" \
-      --link kind-control-plane \
-      --link kind-worker \
+      --link $CLUSTER_NAME-control-plane \
+      --link $CLUTER_NAME-worker \
       nicholasjackson/consul-k8s-tools:$VERSION bash
       
     exit 0
