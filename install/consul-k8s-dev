@@ -58,7 +58,7 @@ function tools() {
   echo ""
   docker run \
     --rm -it \
-    --network host
+    --network host \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v $HOME/.consul_k8s:/files $FOLDER \
     -w /work \
