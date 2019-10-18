@@ -1,13 +1,22 @@
-VERSION=0.1.2
-IMAGE=nicholasjackson/consul-k8s-tools
+VERSION=0.1.3
+IMAGE_TOOLS=nicholasjackson/consul-k8s-tools
+IMAGE_VSCODE=nicholasjackson/code-server
 
 build_tools:
-	docker build -t $(IMAGE):$(VERSION) -f ./dockerfiles/Dockerfile-tools .
+	docker build -t $(IMAGE_TOOLS):$(VERSION) -f ./dockerfiles/Dockerfile-tools .
 
 push_tools:
-	docker push $(IMAGE):$(VERSION)
+	docker push $(IMAGE_TOOLS):$(VERSION)
 
-build_and_push: build_tools push_tools
+build_and_push_tools: build_tools push_tools
+
+build_vscode:
+	docker build -t $(IMAGE_VSCODE):latest -f ./dockerfiles/Dockerfile-vscode .
+
+push_vscode:
+	docker push $(IMAGE_VSCODE):latest
+
+build_and_push_vscode: build_vscode push_vscode
 
 update_version_number:
 	sed -i.bak 's/^VERSION=.*/VERSION=$(version)/' ./Makefile
