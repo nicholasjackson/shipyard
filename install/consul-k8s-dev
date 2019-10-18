@@ -1,12 +1,15 @@
 #!/bin/bash
+VERSION=0.1.2
+
 export KUBECONFIG="$(pwd)/kubeconfig.yml"
+CLUSTER_NAME=consul-k8s-dev
 
 function up() {
-  docker run --network host -it -v "/var/run/docker.sock:/var/run/docker.sock" -v "$HOME/.consul_k8s:/files" -w "/files" nicholasjackson/consul-k8s-tools:latest bash -c "./consul-k8s-dev create"
+  docker run --network host -it -v "/var/run/docker.sock:/var/run/docker.sock" -v "$HOME/.consul_k8s:/files" -w "/files" nicholasjackson/consul-k8s-tools:$VERSION bash -c "./consul-k8s-dev create"
 }
 
 function down() {
-  docker run -it -v "/var/run/docker.sock:/var/run/docker.sock" -v "$HOME/.consul_k8s:/files" -w "/files" nicholasjackson/consul-k8s-tools:latest bash -c "./consul-k8s-dev destroy"
+  docker run -it -v "/var/run/docker.sock:/var/run/docker.sock" -v "$HOME/.consul_k8s:/files" -w "/files" nicholasjackson/consul-k8s-tools:$VERSION bash -c "./consul-k8s-dev destroy"
 }
 
 function tools() {
@@ -14,24 +17,78 @@ function tools() {
 
   if [[ ! -z $1 ]]; then
     echo "#### Mapping local folder to tools container"
+    echo ""
     FOLDER="-v $1:/work"
   fi;
 
-  docker run --rm -it --network host -v /var/run/docker.sock:/var/run/docker.sock -v $HOME/.consul_k8s:/files $FOLDER -w /work -e "KUBECONFIG=/files/kubeconfig.yml" nicholasjackson/consul-k8s-tools:latest bash
+ echo "To expose service in Kubernetes to localhost use kubernetes"
+ echo "port forwarding e.g."
+ echo ""
+ echo "kubectl port-forward --address 0.0.0.0 svc/myservice 10000:80"
+ echo ""
+
+  # NOTE: Host networking does not work correctly on the Mac :(
+  # we can access host services on localhost so kubectl works
+  # however exposed services in the container do not get 
+  # bound to the localhost ip
+  if [ $(uname -s) == "Darwin" ]; then
+    echo "Mapping ports 10000-10100 on localhost to"
+    echo "10000-10100 on container."
+    echo ""
+
+    docker run \
+      --rm -it \
+      -p 10000-10100:10000-10100 \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -v $HOME/.consul_k8s:/files $FOLDER \
+      -w /work \
+      -e "KUBECONFIG=/files/kubeconfig-docker.yml" \
+      -e "CONSUL_HTTP_ADDR=http://kind-worker:30443" \
+      --link kind-control-plane \
+      --link kind-worker \
+      nicholasjackson/consul-k8s-tools:$VERSION bash
+      
+    exit 0
+  fi
+
+  # For other systems default to Host networking
+  echo "Using Host networking in docker"
+  echo "Ports opened in the container will be accessible on the local machine"
+  echo "at the same address and port"
+  echo ""
+  docker run \
+    --rm -it \
+    --network host
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v $HOME/.consul_k8s:/files $FOLDER \
+    -w /work \
+    -e "KUBECONFIG=/files/kubeconfig.yml" \
+    nicholasjackson/consul-k8s-tools:$VERSION bash
 }
 
 function destroy() {
-  kind delete cluster
+  kind delete cluster --name $CLUSTER_NAME
 }
 
-function install_kind() {
+function install_cluster() {
 	echo "#### Create Kubernetes cluster in Docker"
   echo ""
 
-	kind create cluster --config ./config/config.yml
+  # Check if cluster exists, if it does exit exit
+  if kind get clusters | grep $CLUSTER_NAME; then
+    echo "Cluster already exists"
+    echo "Use \"consul-k8s-dev down\" to delete cluster before running up again"
+    exit 1
+  fi
+
+	kind create cluster --config ./config/config.yml --name $CLUSTER_NAME
 
   # Export KubeConfig
-  cat $(kind get kubeconfig-path --name kind) > ./kubeconfig.yml
+  cat $(kind get kubeconfig-path --name $CLUSTER_NAME) > ./kubeconfig.yml
+ 
+  # Create a docker version of the config which replaces the address with the 
+  # name of the container
+  sed 's/127.0.0.1:[0-9]*/kind-control-plane:6443/' ./kubeconfig.yml > ./kubeconfig-docker.yml
 }
 
 function install_core() {
@@ -112,6 +169,29 @@ function vs_code() {
   open http://127.0.0.1:8080
 }
 
+function check_latest() {
+  curl -s "https://consul-k8s.demo.gs/latest_version.html" > $HOME/.consul_k8s/latest
+  if [ $(cat $HOME/.consul_k8s/latest) != "$VERSION" ];then
+    echo "##############################################################"
+    echo ""
+    echo "consul-k8s-dev needs to be updated!"
+    echo ""
+    echo "You are using version: $VERSION"
+    echo "Latest version: $(cat $HOME/.consul_k8s/latest)"
+    echo ""
+    echo "run \"consul-k8s-dev upgrade\" to update to the latest version"
+    echo ""
+    echo "##############################################################"
+    echo ""
+  fi
+}
+
+function upgrade() {
+  curl https://consul-k8s.demo.gs/install.sh | bash
+}
+
+check_latest;
+
 case "$1" in
   "up")
     echo "## Creating K8s cluster in Docker and installing Consul"
@@ -125,7 +205,7 @@ case "$1" in
   "create")
     echo "### Creating Kubernetes cluster, this process will take approximately 2 minutes";
     sleep 5
-    install_kind;
+    install_cluster;
     install_core;
     install_consul;
     install_smi;
@@ -148,6 +228,11 @@ case "$1" in
     echo "";
     tools $2;
     ;;
+  "upgrade")
+    echo "Upgrading to latest version";
+    echo "";
+    upgrade;
+    ;;
   "uninstall")
     uninstall;
     ;;
@@ -160,8 +245,9 @@ case "$1" in
     echo "  up            - Start K8s server"
     echo "  down          - Stop K8s server"
     echo "  tools [path]  - Run tools container"
-    echo "  vscode        - Run VS Code in a browser"
+    echo "  upgrade       - Upgrade consul-k8s-dev to latest version"
     echo "  uninstall     - Remove consul-k8s-dev from this machine"
+    echo "  vscode        - Run VS Code in a browser"
     exit 1 
     ;;
 esac

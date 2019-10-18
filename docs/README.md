@@ -86,8 +86,18 @@ Deleting cluster "kind" ...
 
 ## Tools
 If you do not have `kubectl` or `consul` installed you can use the built in tools. The tools run in an interactive
-Docker shell and can be accessed by running the `tools` sub command with an optional path which is mapped to the 
-container `/work` folder. If no path is specified then the current path is mapped to work.
+Docker shell and can be accessed by running the `tools` sub command.
+
+This command can also be run with an optional path which is mapped to the 
+containers `/work` folder. If no path is specified then the current path is mapped to work.
+
+On Linux environments the tools container runs using the host network, any port on the local system is accessible
+from the tools container. All ports exposed in the container i.e. `kubectl port-forward` will be accessible to the
+local machine.
+
+Due to limitations of Docker Host networks on Mac platforms Host networking can not be used. Tools on Mac instead
+expose the ports 10000-10100 to the local system. To access the host machine the DNS name `host.docker.internal` can
+be used.
 
 ```bash
 ➜ consul-k8s-dev tools $GOPATH/src/github.com/nicholasjackson/demo-consul-service-mesh/kubernetes/traffic_splitting
@@ -104,4 +114,16 @@ consul-consul-qpj6v                                               1/1     Runnin
 consul-consul-server-0                                            1/1     Running     0          22m
 web-deployment-66488ddb9-vsf4n                                    2/2     Running     0          11m
 root@docker-desktop:/work#
+```
+
+## Exposing Kubernetes services
+To access services and pods running in the Kubernetes cluster `kubectl port-forward` can be used.
+
+Assuming a service called `web-service` which is accessible on port `80` is running in Kubernetes, the following
+command can be used to access the service locally using the address `localhost:10000`.
+
+The command will work either using a local version of `kubectl` or using `kubectl` inside the tools container.
+
+```
+kubectl port-forward --address 0.0.0.0 svc/web-service 10000:80
 ```

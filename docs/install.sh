@@ -1,7 +1,7 @@
 #!/bin/bash
-VERSION=0.1.1
+VERSION=0.1.2
 
-echo "## Installing Consul K8s"
+echo "## Installing Consul K8s Version: $VERSION" 
 echo ""
 
 echo "### Remove existing install"
