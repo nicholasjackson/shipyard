@@ -27,11 +27,12 @@ RUN go get github.com/mdempsky/gocode && \
     go build -i -o $GOPATH/bin/gocode-gomod github.com/stamblerre/gocode
 
 # extensions to code-server
-RUN code-server --install-extension ms-vscode.go redhat.vscode-yaml
+RUN code-server --install-extension ms-vscode.go redhat.vscode-yaml wholroyd.hcl
 
 # Symlink extensions for root user
 RUN sudo mkdir -p /root/.local/share/code-server/extensions
 RUN sudo ln -s /home/coder/.local/share/code-server/extensions/ms-vscode.go-0.11.4/ /root/.local/share/code-server/extensions
-RUN sudo ln -s /home/coder/.local/share/code-server/extensions/redhat.vscode-yaml-0.5.3/root/.local/share/code-server/extensions
+RUN sudo ln -s /home/coder/.local/share/code-server/extensions/redhat.vscode-yaml-0.5.3/ /root/.local/share/code-server/extensions
+RUN sudo ln -s /home/coder/.local/share/code-server/extensions/wholroyd.hcl-0.0.4/ /root/.local/share/code-server/extensions
 
 CMD ["code-server", "--allow-http", "--no-auth"]

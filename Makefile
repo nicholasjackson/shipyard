@@ -1,4 +1,4 @@
-VERSION=0.1.3
+VERSION=0.1.4
 IMAGE_TOOLS=nicholasjackson/consul-k8s-tools
 IMAGE_VSCODE=nicholasjackson/code-server
 
@@ -11,10 +11,10 @@ push_tools:
 build_and_push_tools: build_tools push_tools
 
 build_vscode:
-	docker build -t $(IMAGE_VSCODE):latest -f ./dockerfiles/Dockerfile-vscode .
+	docker build -t $(IMAGE_VSCODE):$(VERSION) -f ./dockerfiles/Dockerfile-vscode .
 
 push_vscode:
-	docker push $(IMAGE_VSCODE):latest
+	docker push $(IMAGE_VSCODE):$(VERSION)
 
 build_and_push_vscode: build_vscode push_vscode
 

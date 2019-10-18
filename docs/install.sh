@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION=0.1.3
+VERSION=0.1.4
 
 echo "## Installing Consul K8s Version: $VERSION" 
 echo ""
