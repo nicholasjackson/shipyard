@@ -63,4 +63,7 @@ RUN sudo ln -s /home/coder/.local/share/code-server/extensions/wholroyd.hcl-0.0.
 # Set the shell to bash
 ENV SHELL=/bin/bash
 
+# Make the default user admin
+RUN sudo usermod -aG sudo coder
+
 CMD ["code-server", "--allow-http", "--no-auth"]
