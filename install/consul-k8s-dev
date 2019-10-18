@@ -171,6 +171,7 @@ function vs_code() {
 
 function check_latest() {
   curl -s "https://consul-k8s.demo.gs/latest_version.html" > $HOME/.consul_k8s/latest
+
   if [ $(cat $HOME/.consul_k8s/latest) != "$VERSION" ];then
     echo "##############################################################"
     echo ""
@@ -190,15 +191,15 @@ function upgrade() {
   curl https://consul-k8s.demo.gs/install.sh | bash
 }
 
-check_latest;
-
 case "$1" in
   "up")
+    check_latest;
     echo "## Creating K8s cluster in Docker and installing Consul"
     echo ""
     up;
     ;;
   "down")
+    check_latest;
     echo "## Stopping Kubernetes and cleaning resources"
     down;
     ;;
@@ -224,6 +225,7 @@ case "$1" in
     destroy;
     ;;
   "tools")
+    check_latest;
     echo "## Running tools container";
     echo "";
     tools $2;
@@ -241,6 +243,8 @@ case "$1" in
     vs_code;
     ;;
   *)
+    check_latest;
+
     echo "Options"
     echo "  up            - Start K8s server"
     echo "  down          - Stop K8s server"
