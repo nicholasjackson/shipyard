@@ -127,3 +127,37 @@ The command will work either using a local version of `kubectl` or using `kubect
 ```
 kubectl port-forward --address 0.0.0.0 svc/web-service 10000:80
 ```
+
+## Dashboards
+The Kubernetes Dashboard and the Consul UI are available to view in your browser
+
+### Kubernetes Dashboard
+Point your browser at: [http://localhost:8443](http://localhost:8443)
+
+![](/images/k8s_dashboard.png)
+
+### Consul UI
+Point your browser at [http://localhost:8500/ui](http://localhost:8500/ui)
+
+![](/images/consul_ui.png)
+
+## VS Code integration - EXPERIMENTAL
+Consul K8s Dev even has integration with VS Code running in your browser.
+
+To start VS Code run:
+
+```
+➜ ./consul-k8s-dev vscode
+## Starting VSCode in a browser
+Starting VS Code
+
+When finished you can stop the VSCode server using the command:
+docker kill vscode
+
+affa50cf1b37a95531bc7bf75d503acdf6aaae1374557a3685c87c33817c99b5
+```
+
+You can then edit files and use the terminal from a browser based VS Code instance.
+
+
+![](/images/vscode.png)

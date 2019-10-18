@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION=0.1.4
+VERSION=0.1.5
 
 export KUBECONFIG="$(pwd)/kubeconfig.yml"
 CLUSTER_NAME=consul-k8s-dev
@@ -88,7 +88,7 @@ function install_cluster() {
  
   # Create a docker version of the config which replaces the address with the 
   # name of the container
-  sed 's/127.0.0.1:[0-9]*/kind-control-plane:6443/' ./kubeconfig.yml > ./kubeconfig-docker.yml
+  sed "s/127.0.0.1:[0-9]*/$CLUSTER_NAME-control-plane:6443/" ./kubeconfig.yml > ./kubeconfig-docker.yml
 }
 
 function install_core() {
@@ -169,7 +169,18 @@ function vs_code() {
   echo "docker kill vscode"
   echo ""
 
-  docker run --rm -it -d -p 127.0.0.1:8080:8080 -v "$PWD:/home/coder/project" --name vscode nicholasjackson/code-server:$VERSION
+  docker run --rm -it -d \
+    -p 127.0.0.1:8080:8080 \
+    -v "$PWD:/home/coder/project" \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v "$HOME/.consul_k8s:/files" \
+    --name vscode \
+    -e "KUBECONFIG=/files/kubeconfig-docker.yml" \
+    -e "CONSUL_HTTP_ADDR=http://kind-worker:30443" \
+    --link $CLUSTER_NAME-control-plane \
+    --link $CLUSTER_NAME-worker \
+    nicholasjackson/code-server:$VERSION
+
   sleep 10
   
   if [ $(uname -s) == "Darwin" ]; then

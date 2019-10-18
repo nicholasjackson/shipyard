@@ -1,5 +1,28 @@
 FROM codercom/code-server:v2
 
+RUN sudo apt-get update && sudo apt-get install -y curl apt-transport-https ca-certificates software-properties-common gnupg-agent vim zip jq iputils-ping \
+      net-tools
+
+# Install Kubectl
+RUN curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add - && \
+    echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list && \
+    sudo apt-get update && \
+    sudo apt-get install -y kubectl
+
+# Install Helm
+RUN curl -L https://git.io/get_helm.sh | bash
+
+# Install Docker CLI
+RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add - && \
+    sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu  $(lsb_release -cs)  stable" && \
+    sudo apt-get update && \
+    sudo apt-get install docker-ce-cli
+
+# Install Consul CLI
+RUN curl -sL https://releases.hashicorp.com/consul/1.6.1/consul_1.6.1_linux_amd64.zip -o /tmp/consul.zip && \
+    unzip /tmp/consul.zip && \
+    sudo mv consul /usr/local/bin
+
 # Install Go
 RUN wget https://dl.google.com/go/go1.13.1.linux-amd64.tar.gz -O /tmp/go1.13.tar.gz && \
     sudo tar -C /usr/local -xzf /tmp/go1.13.tar.gz && \
@@ -36,5 +59,8 @@ RUN sudo mkdir -p /root/.local/share/code-server/extensions
 RUN sudo ln -s /home/coder/.local/share/code-server/extensions/ms-vscode.go-0.11.4/ /root/.local/share/code-server/extensions
 RUN sudo ln -s /home/coder/.local/share/code-server/extensions/redhat.vscode-yaml-0.5.3/ /root/.local/share/code-server/extensions
 RUN sudo ln -s /home/coder/.local/share/code-server/extensions/wholroyd.hcl-0.0.4/ /root/.local/share/code-server/extensions
+
+# Set the shell to bash
+ENV SHELL=/bin/bash
 
 CMD ["code-server", "--allow-http", "--no-auth"]
