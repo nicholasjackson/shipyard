@@ -3,6 +3,8 @@ Run disposable Consul Service Mesh and Kubernetes environments locally in Docker
 
 **Note:** This tool has currently been tested on Mac OS Catalina, and Ubuntu 19.04.
 
+Total download size for `consul-k8s-dev` tools and `Kubernetes` installation: 2.25GB
+
 ## Installation
 To install run the following command in your terminal:
 

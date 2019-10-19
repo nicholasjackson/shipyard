@@ -1,27 +1,42 @@
 FROM ubuntu:latest
 
-RUN apt-get update && apt-get install -y curl apt-transport-https ca-certificates software-properties-common gnupg-agent vim zip jq iputils-ping \
-      net-tools
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y \
+      curl \ 
+      apt-transport-https \
+      ca-certificates \ 
+      software-properties-common \
+      vim \
+      zip \
+      jq \
+      iputils-ping \
+      net-tools && \
+      apt-get clean && \
+      apt-get autoremove --purge
+
 
 # Install Kind
-RUN curl -Lo ./kind https://github.com/kubernetes-sigs/kind/releases/download/v0.5.1/kind-$(uname)-amd64 && \
+RUN curl -sLo ./kind https://github.com/kubernetes-sigs/kind/releases/download/v0.5.1/kind-$(uname)-amd64 && \
     chmod +x ./kind && \
     mv ./kind /usr/local/bin/kind
 
 # Install Kubectl
-RUN curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - && \
-    echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | tee -a /etc/apt/sources.list.d/kubernetes.list && \
-    apt-get update && \
-    apt-get install -y kubectl
+RUN curl -sLO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl && \
+    chmod +x ./kubectl && \
+    mv ./kubectl /usr/local/bin
 
 # Install Helm
-RUN curl -L https://git.io/get_helm.sh | bash
+RUN curl -sL https://git.io/get_helm.sh | bash && \
+    helm init -c
 
 # Install Docker CLI
 RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - && \
     add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu  $(lsb_release -cs)  stable" && \
     apt-get update && \
-    apt-get install docker-ce-cli
+    apt-get install docker-ce-cli && \
+    apt-get clean && \
+    apt-get autoremove --purge
 
 # Install Consul CLI
 RUN curl -sL https://releases.hashicorp.com/consul/1.6.1/consul_1.6.1_linux_amd64.zip -o consul.zip && \
