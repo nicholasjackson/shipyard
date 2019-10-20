@@ -1,4 +1,4 @@
 theme: jekyll-theme-cayman
 
-title: Consul-K8s-Dev
+title: Shipyard
 description: Simple tool to create Kubernetes and Consul Service Mesh dev environments in Docker.
