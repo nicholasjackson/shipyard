@@ -21,7 +21,7 @@ echo ""
 
 echo "### Linking application to /usr/local/bin"
 echo "#### You may be prompted for your password!###"
-sudo ln -s $HOME/.shipyard/consul-k8s-dev /usr/local/bin
+sudo ln -s $HOME/.shipyard/yard /usr/local/bin
 echo ""
 
 echo "## Instalation complete"
