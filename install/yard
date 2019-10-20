@@ -262,7 +262,7 @@ function uninstall() {
 
 
 function check_latest() {
-  curl -s "https://consul-k8s.demo.gs/latest_version.html" > $CONFIG/latest
+  curl -s "https://shipyard.demo.gs/latest_version.html" > $CONFIG/latest
 
   if [ $(cat $CONFIG/latest) != "$VERSION" ];then
     echo "##############################################################"
