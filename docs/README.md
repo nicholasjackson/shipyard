@@ -1,15 +1,17 @@
-# Consul K8s Dev - Beta
-Run disposable Consul Service Mesh and Kubernetes environments locally in Docker.
+# Shipyard - Beta
+
+**VERSION=0.1.6**
+
+Run disposable Consul Service Mesh and Kubernetes environments locally in Docker with either Rancher K3s or official
+Kubernetes distributions.
 
 **Note:** This tool has currently been tested on Mac OS Catalina, and Ubuntu 19.04.
-
-Total download size for `consul-k8s-dev` tools and `Kubernetes` installation: 2.25GB
 
 ## Installation
 To install run the following command in your terminal:
 
 ```bash
-➜ curl https://consul-k8s.demo.gs/install.sh | bash
+➜ curl https://shipyard.demo.gs/install.sh | bash
 ```
 
 ```bash
@@ -21,7 +23,7 @@ Installing Consul K8s
 #...
 
 
-### Install application config to /Users/nicj/.consul_k8s
+### Install application config to /Users/nicj/.shipyard
 
 ### Linking application to /usr/local/bin
 #### You may be prompted for your password!###
@@ -29,7 +31,7 @@ Installing Consul K8s
 ## Instalation complete
 To create a local Kubernetes and Consul cluster run:
 
-consul-k8s-dev up
+yard up
 ```
 
 ## Demo
@@ -40,8 +42,10 @@ consul-k8s-dev up
 To start a Kubernetes cluster in Docker with Consul pre-installed run the following command:
 
 ```bash
-➜ consul-k8s-dev up
+➜ yard up
 ```
+
+Note: The default is to use the K3s distribution for official Kubernetes use `yard up k8s`
 
 ```bash
 ## Creating K8s cluster in Docker and installing Consul
@@ -68,17 +72,17 @@ kubectl cluster-info
 ### Setup complete:
 
 To interact with Kubernetes set your KUBECONFIG environment variable
-export KUBECONFIG="$HOME/.consul_k8s/kubeconfig.yml"
+export KUBECONFIG="$HOME/.shipyard/kubeconfig.yml"
 
 Consul can be accessed at: http://localhost:8500
 
-When finished use "consul-k8s-dev down" to cleanup and remove resources
+When finished use "yard down" to cleanup and remove resources
 ```
 
 ## Removing your dev cluster
 
 ```bash
-➜ consul-k8s-dev down
+➜ yard down
 ```
 
 ```bash
@@ -102,7 +106,7 @@ expose the ports 10000-10100 to the local system. To access the host machine the
 be used.
 
 ```bash
-➜ consul-k8s-dev tools $GOPATH/src/github.com/nicholasjackson/demo-consul-service-mesh/kubernetes/traffic_splitting
+➜ yard tools $GOPATH/src/github.com/nicholasjackson/demo-consul-service-mesh/kubernetes/traffic_splitting
 Running tools container
 
 Mapping local folder to tools container
@@ -149,7 +153,7 @@ Consul K8s Dev even has integration with VS Code running in your browser.
 To start VS Code run:
 
 ```
-➜ ./consul-k8s-dev vscode
+➜ yard vscode
 ## Starting VSCode in a browser
 Starting VS Code
 

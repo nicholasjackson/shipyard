@@ -1,0 +1,389 @@
+#!/bin/bash
+VERSION=0.1.6
+
+export KUBECONFIG="$(pwd)/kubeconfig.yml"
+CLUSTER_NAME=shipyard
+CONFIG=$HOME/.shipyard
+
+# Allow install folder override for development
+if [[ ! -z $CONFIG_TMP ]]; then
+  CONFIG=$CONFIG_TMP
+fi
+
+function up() {
+  docker run \
+    --rm \
+    --network host \
+    -it \
+    -v "/var/run/docker.sock:/var/run/docker.sock" \
+    -v "$CONFIG:/files" \
+    -w "/files" nicholasjackson/consul-k8s-tools:$VERSION \
+    bash -c "./yard create $1"
+}
+
+function down() {
+  docker run \
+    --rm \
+    --network host \
+    -it \
+    -v "/var/run/docker.sock:/var/run/docker.sock" \
+    -v "$CONFIG:/files" \
+    -w "/files" nicholasjackson/consul-k8s-tools:$VERSION \
+    bash -c "./yard destroy $1"
+}
+
+function tools() {
+  FOLDER="-v $(pwd):/work"
+
+  if [[ ! -z $1 ]]; then
+    echo "#### Mapping local folder to tools container"
+    echo ""
+    FOLDER="-v $1:/work"
+  fi;
+
+  echo "To expose service in Kubernetes to localhost use kubernetes"
+  echo "port forwarding e.g."
+  echo ""
+  echo "kubectl port-forward --address 0.0.0.0 svc/myservice 10000:80"
+  echo ""
+
+  # NOTE: Host networking does not work correctly on the Mac :(
+  # we can access host services on localhost so kubectl works
+  # however exposed services in the container do not get 
+  # bound to the localhost ip
+  if [ $(uname -s) == "Darwin" ]; then
+    LINKS="--link $CLUSTER_NAME-control-plane \
+           --link $CLUSTER_NAME-worker"
+    CONSUL_ENV="-e CONSUL_HTTP_ADDR=http://$CLUSTER_NAME-worker:30443"
+
+    # read from state to determine server type
+    if [ $(cat $CONFIG/state) == "k3s" ]; then
+      LINKS="--network k3d-$CLUSTER_NAME"
+      CONSUL_ENV="-e CONSUL_HTTP_ADDR=http://k3d-$CLUSTER_NAME-server:30443"
+    fi
+
+    echo "Mapping ports 10000-10100 on localhost to"
+    echo "10000-10100 on container."
+    echo ""
+
+    echo "Linking container $LINKS"
+    echo "Setting environment $CONSUL_ENV"
+
+    docker run \
+      --rm -it \
+      -p 10000-10100:10000-10100 \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -v $CONFIG:/files $FOLDER \
+      -w /work \
+      -e "KUBECONFIG=/files/kubeconfig-docker.yml" \
+      $CONSUL_ENV \
+      $LINKS \
+      nicholasjackson/consul-k8s-tools:$VERSION bash
+      
+    exit 0
+  fi
+
+  # For other systems default to Host networking
+  echo "Using Host networking in docker"
+  echo "Ports opened in the container will be accessible on the local machine"
+  echo "at the same address and port"
+  echo ""
+  docker run \
+    --rm -it \
+    --network host \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v $CONFIG:/files $FOLDER \
+    -w /work \
+    -e "KUBECONFIG=/files/kubeconfig.yml" \
+    nicholasjackson/consul-k8s-tools:$VERSION bash
+}
+
+function vs_code() {
+  echo "Starting VS Code"
+  echo ""
+  echo "When finished you can stop the VSCode server using the command:"
+  echo "docker kill vscode"
+  echo ""
+    
+  LINKS="--link $CLUSTER_NAME-control-plane \
+         --link $CLUSTER_NAME-worker"
+  CONSUL_ENV="-e CONSUL_HTTP_ADDR=http://$CLUSTER_NAME-worker:30443"
+
+  # read from state to determine server type
+  if [ $(cat $CONFIG/state) == "k3s" ]; then
+    LINKS="--network k3d-$CLUSTER_NAME"
+    CONSUL_ENV="-e CONSUL_HTTP_ADDR=http://k3d-$CLUSTER_NAME-server:30443"
+  fi
+
+  docker run --rm -it -d \
+    -p 127.0.0.1:8080:8080 \
+    -v "$PWD:/home/coder/project" \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v "$CONFIG:/files" \
+    --name vscode \
+    -e "KUBECONFIG=/files/kubeconfig-docker.yml" \
+    $CONSUL_ENV \
+    $LINKS \
+    nicholasjackson/code-server:$VERSION
+
+  sleep 10
+  
+  if [ $(uname -s) == "Darwin" ]; then
+    open "http://127.0.0.1:8080/?folder=/home/coder/project"
+    exit 0
+  fi
+
+  xdg-open "http://127.0.0.1:8080/?folder=/home/coder/project"
+}
+
+function destroy() {
+  kind delete cluster --name $CLUSTER_NAME
+}
+
+function destroy_k3s() {
+  k3d delete --name $CLUSTER_NAME
+}
+
+function install_cluster() {
+	echo "#### Create Kubernetes cluster in Docker"
+  echo ""
+
+  # Check if cluster exists, if it does exit exit
+  if kind get clusters | grep $CLUSTER_NAME; then
+    echo "Cluster already exists"
+    echo "Use \"yard down\" to delete cluster before running up again"
+    exit 1
+  fi
+
+	kind create cluster --config ./config/config.yml --name $CLUSTER_NAME
+
+  # Export KubeConfig
+  cat $(kind get kubeconfig-path --name $CLUSTER_NAME) > ./kubeconfig.yml
+ 
+  # Create a docker version of the config which replaces the address with the 
+  # name of the container
+  sed "s/127.0.0.1:[0-9]*/$CLUSTER_NAME-control-plane:6443/" ./kubeconfig.yml > ./kubeconfig-docker.yml
+  
+  # write to the state file
+  echo "k8s" > ./state
+}
+
+function install_cluster_k3s() {
+	echo "#### Create Kubernetes cluster in Docker using K3s"
+  echo ""
+
+  k3d create -n $CLUSTER_NAME --publish 8500:30443 --publish 8443:30444
+  
+  # Export KubeConfig
+  sleep 10 ## Wait for start before grabbing config
+  mkdir -p /root/.config/k3d/$CLUSTER_NAME/
+  k3d get-kubeconfig -n $CLUSTER_NAME
+  mv /root/.config/k3d/$CLUSTER_NAME/kubeconfig.yaml ./kubeconfig.yml
+
+  # Create a docker version of the config which replaces the address with the 
+  # name of the container
+  sed "s/127.0.0.1:[0-9]*/k3d-$CLUSTER_NAME-server:6443/" ./kubeconfig.yml > ./kubeconfig-docker.yml
+  
+  # write to the state file
+  echo "k3s" > ./state
+}
+
+function install_core() {
+	# Wait for cluster to be available
+	echo "#### Waiting for Kubernetes to start"
+  echo ""
+
+	until $(kubectl get pods); do
+		sleep 1
+	done
+
+	echo "#### Install local storage controller for Kubernetes"
+  echo ""
+	
+  # Add storage
+  kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/master/deploy/local-path-storage.yaml
+	kubectl get storageclass
+
+	echo "#### Configure RBAC for Helm tiller" 
+  echo ""
+	# Create tiller service account
+	kubectl -n kube-system create serviceaccount tiller
+
+	# Create cluster role binding for tiller
+	kubectl create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
+
+	echo "#### Install Helm tiller" 
+  echo ""
+	# Initialize tiller and wait for complete
+	helm init --wait --service-account tiller
+}
+
+function install_consul() {
+  echo "#### Installing Consul using latest Helm chart"
+  echo ""
+
+	# Install the Consul helm chart	
+	helm install -n consul ./config/helm-charts/consul-helm-0.9.0
+
+  # Wait for Consul server to be ready
+  echo "#### Waiting for Consul server to start"
+  echo ""
+  until kubectl get pods -l component=server --field-selector=status.phase=Running | grep "/1" | grep -v "0/"; do
+    sleep 1
+  done
+  
+  # Wait for Consul client to be ready
+  echo "#### Waiting for Consul client to start"
+  echo ""
+  until kubectl get pods -l component=client --field-selector=status.phase=Running | grep "/1" | grep -v "0/"; do
+    sleep 1
+  done
+
+  # Get a root ACL token and write to disk
+  # kubectl get secret consul-consul-bootstrap-acl-token -o json | jq -r .data.token > consul_acl.token 
+}
+
+function install_smi() {
+  echo "#### Install SMI"
+  echo ""
+
+  # Install the CRDs for the controller
+  kubectl apply -f ./config/k8s_config
+}
+
+function uninstall() {
+  echo "### Uninstalling yard"
+  echo "#### You may be prompted for your password!###"
+  echo ""
+  
+  sudo rm -f /usr/local/bin/yard
+  sudo rm -rf $HOME/.shipyard
+}
+
+
+function check_latest() {
+  curl -s "https://consul-k8s.demo.gs/latest_version.html" > $CONFIG/latest
+
+  if [ $(cat $CONFIG/latest) != "$VERSION" ];then
+    echo "##############################################################"
+    echo ""
+    echo "Shipyard needs to be updated!"
+    echo ""
+    echo "You are using version: $VERSION"
+    echo "Latest version: $(cat $HOME/.shipyard/latest)"
+    echo ""
+    echo "run \"yard upgrade\" to update to the latest version"
+    echo ""
+    echo "##############################################################"
+    echo ""
+  fi
+}
+
+function upgrade() {
+  curl https://shipyard.demo.gs/install.sh | bash
+}
+
+function logo() {
+  echo ""
+  echo '     _______. __    __   __  .______   ____    ____  ___      .______       _______  '
+  echo '    /       ||  |  |  | |  | |   _  \  \   \  /   / /   \     |   _  \     |       \ '
+  echo '   |   (----`|  |__|  | |  | |  |_)  |  \   \/   / /  ^  \    |  |_)  |    |  .--.  |'
+  echo '    \   \    |   __   | |  | |   ___/    \_    _/ /  /_\  \   |      /     |  |  |  |'
+  echo '.----)   |   |  |  |  | |  | |  |          |  |  /  _____  \  |  |\  \----.|  .--.  |'
+  echo '|_______/    |__|  |__| |__| | _|          |__| /__/     \__\ | _| `._____||_______/ '
+  echo ""
+  echo ""
+  echo ""
+}
+
+
+case "$1" in
+  "up")
+    logo;
+    check_latest;
+    echo "## Creating K8s cluster in Docker and installing Consul"
+    echo ""
+    up $2;
+    ;;
+  "down")
+    logo;
+    check_latest;
+    echo "## Stopping Kubernetes and cleaning resources"
+    
+    # get active type from state
+    if [ $(cat $CONFIG/state) == "k3s" ]; then
+      down "k3s";
+    else
+      down "k8s";
+    fi
+    ;;
+  "create")
+    echo "### Creating Kubernetes cluster, this process will take approximately 2 minutes";
+    sleep 5;
+    
+    if [[ $2 == "k8s" ]]; then
+      install_cluster;
+    else
+      install_cluster_k3s;
+    fi
+
+    install_core $1;
+    install_consul;
+    install_smi;
+
+    echo "";
+    echo "### Setup complete:";
+    echo "";
+    echo "To interact with Kubernetes set your KUBECONFIG environment variable";
+    echo 'export KUBECONFIG="$HOME/.shipyard/kubeconfig.yml"';
+    echo "";
+    echo "Consul can be accessed at: http://localhost:8500";
+    echo "Kubernetes dashboard can be accessed at: http://localhost:8443";
+    echo "";
+    echo "When finished use 'yard down' to cleanup and remove resources";
+    ;;
+  "destroy")
+    if [[ $2 == "k3s" ]]; then
+      destroy_k3s;
+    else
+      destroy;
+    fi
+    ;;
+  "tools")
+    logo;
+    check_latest;
+    echo "## Running tools container";
+    echo "";
+    tools $2;
+    ;;
+  "upgrade")
+    logo;
+    echo "Upgrading to latest version";
+    echo "";
+    upgrade;
+    ;;
+  "uninstall")
+    logo;
+    uninstall;
+    ;;
+  "vscode")
+    logo;
+    echo "## Starting VSCode in a browser"
+    vs_code;
+    ;;
+  *)
+    logo;
+    check_latest;
+
+    echo "Options"
+    echo "  up [type]     - Start K8s server"
+    echo "                  options: k3s or k8s"
+    echo "                  default = k3s"
+    echo "  down          - Stop K8s server"
+    echo "  tools [path]  - Run tools container"
+    echo "  upgrade       - Upgrade yard to latest version"
+    echo "  uninstall     - Remove yard from this machine"
+    echo "  vscode        - Run VS Code in a browser"
+    exit 1 
+    ;;
+esac

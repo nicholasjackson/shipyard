@@ -1,30 +1,30 @@
 #!/bin/bash
-VERSION=0.1.5
+VERSION=0.1.6
 
-echo "## Installing Consul K8s Version: $VERSION" 
+echo "## Installing Shipyard Version: $VERSION" 
 echo ""
 
 echo "### Remove existing install"
 echo "#### You may be prompted for your password!###"
-sudo rm -f /usr/local/bin/consul-k8s-dev
-sudo rm -rf $HOME/.consul_k8s
+sudo rm -f /usr/local/bin/yard
+sudo rm -rf $HOME/.shipyard
 echo ""
 
 echo "### Download application"
-wget https://github.com/nicholasjackson/consul-k8s-dev/archive/v$VERSION.tar.gz -O /tmp/consul-k8s.tar.gz
-tar -zxf /tmp/consul-k8s.tar.gz -C /tmp/
+wget https://github.com/nicholasjackson/shipyard/archive/v$VERSION.tar.gz -O /tmp/shipyard.tar.gz
+tar -zxf /tmp/shipyard.tar.gz -C /tmp/
 echo ""
 
-echo "### Install application config to $HOME/.consul_k8s"
-mv /tmp/consul-k8s-dev-$VERSION/install $HOME/.consul_k8s
+echo "### Install application config to $HOME/.shipyard"
+mv /tmp/shipyard-$VERSION/install $HOME/.shipyard
 echo ""
 
 echo "### Linking application to /usr/local/bin"
 echo "#### You may be prompted for your password!###"
-sudo ln -s $HOME/.consul_k8s/consul-k8s-dev /usr/local/bin
+sudo ln -s $HOME/.shipyard/consul-k8s-dev /usr/local/bin
 echo ""
 
 echo "## Instalation complete"
 echo "To create a local Kubernetes and Consul cluster run:"
 echo ""
-echo "consul-k8s-dev up"
+echo "yard up"
