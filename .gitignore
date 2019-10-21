@@ -1,4 +1,4 @@
 install/latest
-install/state
-install/kubeconfig.yml
-install/kubeconfig-docker.yml
+install/*/state
+install/*/kubeconfig.yml
+install/*/kubeconfig-docker.yml
