@@ -1,0 +1,3 @@
+./install/latest
+./install/kubeconfig.yml
+./install/kubeconfig-docker.yml
