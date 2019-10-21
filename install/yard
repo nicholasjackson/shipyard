@@ -22,6 +22,9 @@ function up() {
 }
 
 function down() {
+  # get forwarded ports and delete
+  docker rm -f $(docker ps -q --filter "name=^yard-")
+
   docker run \
     --rm \
     --network host \
@@ -30,6 +33,33 @@ function down() {
     -v "$CONFIG:/files" \
     -w "/files" nicholasjackson/consul-k8s-tools:$VERSION \
     bash -c "./yard destroy $1"
+}
+
+function expose_port() {
+  LINKS="--link $CLUSTER_NAME-control-plane \
+         --link $CLUSTER_NAME-worker"
+
+  # read from state to determine server type
+  if [ $(cat $CONFIG/state) == "k3s" ]; then
+    LINKS="--network k3d-$CLUSTER_NAME"
+  fi
+
+
+  docker run \
+    --rm -it \
+    -d \
+    --name yard-$2-$3 \
+    -p $3:$2 \
+    -v $CONFIG:/files $FOLDER \
+    -e "KUBECONFIG=/files/kubeconfig-docker.yml" \
+    $LINKS \
+    nicholasjackson/consul-k8s-tools:$VERSION \
+    kubectl port-forward --address 0.0.0.0 $1 $2 $3
+
+  # Attach to a second network
+  if [[ ! -z $4 ]]; then
+    docker network connect $4 yard-$2-$3
+  fi
 }
 
 function tools() {
@@ -41,7 +71,7 @@ function tools() {
     FOLDER="-v $1:/work"
   fi;
 
-  echo "To expose service in Kubernetes to localhost use kubernetes"
+  echo "To expose service in Kubernetes to localhost use:"
   echo "port forwarding e.g."
   echo ""
   echo "kubectl port-forward --address 0.0.0.0 svc/myservice 10000:80"
@@ -323,9 +353,11 @@ case "$1" in
       down "k8s";
     fi
     ;;
-  "port")
+  "expose")
     logo;
-    echo "## Expose port locally"
+    check_latest;
+    echo "## Expose service: $2 port: $3 at $4"
+    expose_port $2 $3 $4 $5
     ;;
   "tools")
     logo;
@@ -390,6 +422,9 @@ case "$1" in
     echo "                  options: k3s or k8s"
     echo "                  default = k3s"
     echo "  down          - Stop K8s server"
+    echo "  expose        - [ port / service] [k8s port] [host port] [docker network]"
+    echo "                  e.g. expose k8s service web-service on all ips port 9090"
+    echo "                  'yard expose svc/web-service 9090 9090'"
     echo "  tools [path]  - Run tools container"
     echo "  upgrade       - Upgrade yard to latest version"
     echo "  uninstall     - Remove yard from this machine"
