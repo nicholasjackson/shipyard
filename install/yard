@@ -1,8 +1,6 @@
 #!/bin/bash
 VERSION=0.1.7
 
-export KUBECONFIG="$(pwd)/kubeconfig.yml"
-CLUSTER_NAME=shipyard
 CONFIG=$HOME/.shipyard
 
 # Allow install folder override for development
@@ -18,12 +16,15 @@ function up() {
     -v "/var/run/docker.sock:/var/run/docker.sock" \
     -v "$CONFIG:/files" \
     -w "/files" nicholasjackson/consul-k8s-tools:$VERSION \
-    bash -c "./yard create $1"
+    bash -c "./yard create $1 $2 $3 $4"
 }
 
 function down() {
+  local TYPE=$1
+  local NAME=$2
+
   # get forwarded ports and delete
-  docker rm -f $(docker ps -q --filter "name=^yard-")
+  docker rm -f $(docker ps -q --filter "name=^yard-$NAME-")
 
   docker run \
     --rm \
@@ -32,44 +33,44 @@ function down() {
     -v "/var/run/docker.sock:/var/run/docker.sock" \
     -v "$CONFIG:/files" \
     -w "/files" nicholasjackson/consul-k8s-tools:$VERSION \
-    bash -c "./yard destroy $1"
+    bash -c "./yard destroy $1 $2"
 }
 
 function expose_port() {
-  LINKS="--link $CLUSTER_NAME-control-plane \
-         --link $CLUSTER_NAME-worker"
+  local NAME=$1
+  local SERVICE_NAME=$2
+  local SERVICE_PORT=$3
+  local HOST_PORT=$4
+  local NETWORK_NAME=$5
+
+  LINKS="--link $NAME-control-plane \
+         --link $NAME-worker"
 
   # read from state to determine server type
-  if [ $(cat $CONFIG/state) == "k3s" ]; then
-    LINKS="--network k3d-$CLUSTER_NAME"
+  if [ $(cat $CONFIG/$NAME/state) == "k3s" ]; then
+    LINKS="--network k3d-$NAME"
   fi
-
 
   docker run \
     --rm -it \
     -d \
-    --name yard-$2-$3 \
-    -p $3:$2 \
+    --name yard-$NAME-$SERVICE_PORT-$HOST_PORT \
+    -p $HOST_PORT:$SERVICE_PORT \
     -v $CONFIG:/files $FOLDER \
-    -e "KUBECONFIG=/files/kubeconfig-docker.yml" \
+    -e "KUBECONFIG=/files/$NAME/kubeconfig-docker.yml" \
     $LINKS \
     nicholasjackson/consul-k8s-tools:$VERSION \
-    kubectl port-forward --address 0.0.0.0 $1 $2 $3
+    kubectl port-forward --address 0.0.0.0 $SERVICE_NAME $HOST_PORT $SERVICE_PORT
 
   # Attach to a second network
-  if [[ ! -z $4 ]]; then
-    docker network connect $4 yard-$2-$3
+  if [[ ! -z $NETWORK_NAME ]]; then
+    docker network connect $NETWORK_NAME yard-$NAME-$SERVICE_PORT-$HOST_PORT
   fi
 }
 
 function tools() {
-  FOLDER="-v $(pwd):/work"
-
-  if [[ ! -z $1 ]]; then
-    echo "#### Mapping local folder to tools container"
-    echo ""
-    FOLDER="-v $1:/work"
-  fi;
+  local NAME=$1
+  local FOLDER=$2
 
   echo "To expose service in Kubernetes to localhost use:"
   echo "port forwarding e.g."
@@ -82,14 +83,14 @@ function tools() {
   # however exposed services in the container do not get 
   # bound to the localhost ip
   if [ $(uname -s) == "Darwin" ]; then
-    LINKS="--link $CLUSTER_NAME-control-plane \
-           --link $CLUSTER_NAME-worker"
-    CONSUL_ENV="-e CONSUL_HTTP_ADDR=http://$CLUSTER_NAME-worker:30443"
+    LINKS="--link $NAME-control-plane \
+           --link $NAME-worker"
+    CONSUL_ENV="-e CONSUL_HTTP_ADDR=http://$NAME-worker:30443"
 
     # read from state to determine server type
-    if [ $(cat $CONFIG/state) == "k3s" ]; then
-      LINKS="--network k3d-$CLUSTER_NAME"
-      CONSUL_ENV="-e CONSUL_HTTP_ADDR=http://k3d-$CLUSTER_NAME-server:30443"
+    if [ $(cat $CONFIG/$NAME/state) == "k3s" ]; then
+      LINKS="--network k3d-$NAME"
+      CONSUL_ENV="-e CONSUL_HTTP_ADDR=http://k3d-$NAME-server:30443"
     fi
 
     echo "Mapping ports 10000-10100 on localhost to"
@@ -103,9 +104,10 @@ function tools() {
       --rm -it \
       -p 10000-10100:10000-10100 \
       -v /var/run/docker.sock:/var/run/docker.sock \
-      -v $CONFIG:/files $FOLDER \
+      -v $CONFIG:/files \
+      -v $FOLDER:/work \
       -w /work \
-      -e "KUBECONFIG=/files/kubeconfig-docker.yml" \
+      -e "KUBECONFIG=/files/$NAME/kubeconfig-docker.yml" \
       $CONSUL_ENV \
       $LINKS \
       nicholasjackson/consul-k8s-tools:$VERSION bash
@@ -122,36 +124,39 @@ function tools() {
     --rm -it \
     --network host \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    -v $CONFIG:/files $FOLDER \
-    -w /work \
-    -e "KUBECONFIG=/files/kubeconfig.yml" \
+    -v $CONFIG:/files \
+    -v $FOLDER:/work \
+    -e "KUBECONFIG=/files/$NAME/kubeconfig.yml" \
     nicholasjackson/consul-k8s-tools:$VERSION bash
 }
 
 function vs_code() {
+  local NAME=$1
+  local FOLDER=$2
+
   echo "Starting VS Code"
   echo ""
   echo "When finished you can stop the VSCode server using the command:"
   echo "docker kill vscode"
   echo ""
     
-  LINKS="--link $CLUSTER_NAME-control-plane \
-         --link $CLUSTER_NAME-worker"
-  CONSUL_ENV="-e CONSUL_HTTP_ADDR=http://$CLUSTER_NAME-worker:30443"
+  LINKS="--link $NAME-control-plane \
+         --link $NAME-worker"
+  CONSUL_ENV="-e CONSUL_HTTP_ADDR=http://$NAME-worker:30443"
 
   # read from state to determine server type
-  if [ $(cat $CONFIG/state) == "k3s" ]; then
-    LINKS="--network k3d-$CLUSTER_NAME"
-    CONSUL_ENV="-e CONSUL_HTTP_ADDR=http://k3d-$CLUSTER_NAME-server:30443"
+  if [ $(cat $CONFIG/$NAME/state) == "k3s" ]; then
+    LINKS="--network k3d-$NAME"
+    CONSUL_ENV="-e CONSUL_HTTP_ADDR=http://k3d-$NAME-server:30443"
   fi
 
   docker run --rm -it -d \
     -p 127.0.0.1:8080:8080 \
-    -v "$PWD:/home/coder/project" \
+    -v "$FOLDER:/home/coder/project" \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$CONFIG:/files" \
     --name vscode \
-    -e "KUBECONFIG=/files/kubeconfig-docker.yml" \
+    -e "KUBECONFIG=/files/$NAME/kubeconfig-docker.yml" \
     $CONSUL_ENV \
     $LINKS \
     nicholasjackson/code-server:$VERSION
@@ -167,14 +172,22 @@ function vs_code() {
 }
 
 function destroy() {
+  local CLUSTER_NAME=$1
+
   kind delete cluster --name $CLUSTER_NAME
 }
 
 function destroy_k3s() {
+  local CLUSTER_NAME=$1
+  
   k3d delete --name $CLUSTER_NAME
 }
 
 function install_cluster() {
+  local CLUSTER_NAME=$1
+  local CONSUL_PORT=$2
+  local DASHBOARD_PORT=$3 
+
 	echo "#### Create Kubernetes cluster in Docker"
   echo ""
 
@@ -185,24 +198,48 @@ function install_cluster() {
     exit 1
   fi
 
-	kind create cluster --config ./config/config.yml --name $CLUSTER_NAME
+  # Modify config to add custom ports
+  cat << EOF > /tmp/${CLUSTER_NAME}_config.yml
+---
+kind: Cluster
+apiVersion: kind.sigs.k8s.io/v1alpha3
+nodes:
+- role: control-plane
+- role: worker
+  extraPortMappings:
+  - containerPort: 30443
+    hostPort: $CONSUL_PORT
+  - containerPort: 30444
+    hostPort: $DASHBOARD_PORT
+EOF
+
+	kind create cluster --config /tmp/${CLUSTER_NAME}_config.yml --name $CLUSTER_NAME
+
+  mkdir -p ./$CLUSTER_NAME
 
   # Export KubeConfig
-  cat $(kind get kubeconfig-path --name $CLUSTER_NAME) > ./kubeconfig.yml
+  cat $(kind get kubeconfig-path --name $CLUSTER_NAME) > ./$CLUSTER_NAME/kubeconfig.yml
  
   # Create a docker version of the config which replaces the address with the 
   # name of the container
-  sed "s/127.0.0.1:[0-9]*/$CLUSTER_NAME-control-plane:6443/" ./kubeconfig.yml > ./kubeconfig-docker.yml
+  sed "s/127.0.0.1:[0-9]*/$CLUSTER_NAME-control-plane:6443/" ./$CLUSTER_NAME/kubeconfig.yml > ./$CLUSTER_NAME/kubeconfig-docker.yml
   
   # write to the state file
-  echo "k8s" > ./state
+  echo "k8s" > ./$CLUSTER_NAME/state
 }
 
 function install_cluster_k3s() {
+  local CLUSTER_NAME=$1
+  local CONSUL_PORT=$2
+  local DASHBOARD_PORT=$3 
+
 	echo "#### Create Kubernetes cluster in Docker using K3s"
   echo ""
 
-  k3d create -n $CLUSTER_NAME --publish 8500:30443 --publish 8443:30444 --wait 60
+  # Generate a random API server port
+  API_SERVER_PORT=$(shuf -i 64000-65000 -n 1)
+  
+  k3d create -n $CLUSTER_NAME --publish $CONSUL_PORT:30443 --publish $DASHBOARD_PORT:30444 --wait 60 --api-port $API_SERVER_PORT
 
   # Cache images locally for faster startup
   docker pull hashicorp/consul-k8s:0.9.2 
@@ -220,15 +257,16 @@ function install_cluster_k3s() {
   
   # Export KubeConfig
   mkdir -p /root/.config/k3d/$CLUSTER_NAME/
+  mkdir -p ./$CLUSTER_NAME
   k3d get-kubeconfig -n $CLUSTER_NAME
-  mv /root/.config/k3d/$CLUSTER_NAME/kubeconfig.yaml ./kubeconfig.yml
+  mv /root/.config/k3d/$CLUSTER_NAME/kubeconfig.yaml ./$CLUSTER_NAME/kubeconfig.yml
 
   # Create a docker version of the config which replaces the address with the 
   # name of the container
-  sed "s/127.0.0.1:[0-9]*/k3d-$CLUSTER_NAME-server:6443/" ./kubeconfig.yml > ./kubeconfig-docker.yml
+  sed "s/127.0.0.1:[0-9]*/k3d-$CLUSTER_NAME-server:$API_SERVER_PORT/" ./$CLUSTER_NAME/kubeconfig.yml > ./$CLUSTER_NAME/kubeconfig-docker.yml
   
   # write to the state file
-  echo "k3s" > ./state
+  echo "k3s" > ./$CLUSTER_NAME/state
 }
 
 function install_core() {
@@ -246,19 +284,6 @@ function install_core() {
   # Add storage
   kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/master/deploy/local-path-storage.yaml
 	kubectl get storageclass
-
-	echo "#### Configure RBAC for Helm tiller" 
-  echo ""
-	# Create tiller service account
-	kubectl -n kube-system create serviceaccount tiller
-
-	# Create cluster role binding for tiller
-	kubectl create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
-
-	#echo "#### Install Helm tiller" 
-  #echo ""
-	## Initialize tiller and wait for complete
-	#helm init --wait --service-account tiller
 }
 
 function install_consul() {
@@ -286,8 +311,8 @@ function install_consul() {
   # kubectl get secret consul-consul-bootstrap-acl-token -o json | jq -r .data.token > consul_acl.token 
 }
 
-function install_smi() {
-  echo "#### Install SMI"
+function install_k8s() {
+  echo "#### Install K8s Config"
   echo ""
 
   # Install the CRDs for the controller
@@ -335,44 +360,157 @@ function logo() {
   echo '.----)   |   |  |  |  | |  | |  |          |  |  /  _____  \  |  |\  \----.|  .--.  |'
   echo '|_______/    |__|  |__| |__| | _|          |__| /__/     \__\ | _| `._____||_______/ '
   echo ""
-  echo "Version $VERSION"
   echo ""
+  echo "Version: $VERSION"
   echo ""
 }
 
 
 case "$1" in
   "up")
+    # check if consul port overriden
+    CONSUL_PORT="8500"
+    DASHBOARD_PORT="8443"
+    TYPE="k3s"
+    NAME="shipyard"
+
+    while [[ $# -gt 0 ]]
+    do
+      case $1 in
+          --type)
+          TYPE="$2"
+          shift # past argument
+          shift # past value
+          ;;
+          --name)
+          NAME="$2"
+          shift # past argument
+          shift # past value
+          ;;
+          --consul-port)
+          CONSUL_PORT="$2"
+          shift # past argument
+          shift # past value
+          ;;
+          --dashboard-port)
+          DASHBOARD_PORT="$2"
+          shift # past argument
+          shift # past value
+          ;;    
+        *)    # unknown option
+          shift # past argument
+          ;;
+      esac
+    done
+
     logo;
     check_latest;
     echo "## Creating K8s cluster in Docker and installing Consul"
     echo ""
-    up $2;
+    up $TYPE $NAME $CONSUL_PORT $DASHBOARD_PORT;
     ;;
   "down")
+    NAME="shipyard"
+
+    while [[ $# -gt 0 ]]
+    do
+      case $1 in
+          --name)
+          NAME="$2"
+          shift # past argument
+          shift # past value
+          ;;
+        *)    # unknown option
+          shift # past argument
+          ;;
+      esac
+    done
+
     logo;
     check_latest;
     echo "## Stopping Kubernetes and cleaning resources"
     
     # get active type from state
-    if [ $(cat $CONFIG/state) == "k3s" ]; then
-      down "k3s";
+    if [ $(cat $CONFIG/$NAME/state) == "k3s" ]; then
+      down "k3s" $NAME;
     else
-      down "k8s";
+      down "k8s" $NAME;
     fi
     ;;
   "expose")
+    SERVICE_NAME=""
+    SERVICE_PORT=""
+    HOST_PORT=""
+    NETWORK=""
+    NAME="shipyard"
+
+    while [[ $# -gt 0 ]]
+    do
+      case $1 in
+          --name)
+          NAME="$2"
+          shift # past argument
+          shift # past value
+          ;;
+          --service-name)
+          SERVICE_NAME="$2"
+          shift # past argument
+          shift # past value
+          ;;
+          --service-port)
+          SERVICE_PORT="$2"
+          shift # past argument
+          shift # past value
+          ;;
+          --host-port)
+          HOST_PORT="$2"
+          shift # past argument
+          shift # past value
+          ;;    
+          --network)
+          NETWORK="$2"
+          shift # past argument
+          shift # past value
+          ;;    
+        *)    # unknown option
+          shift # past argument
+          ;;
+      esac
+    done
+
     logo;
     check_latest;
-    echo "## Expose service: $2 port: $3 at $4"
-    expose_port $2 $3 $4 $5
+    echo "## Expose service: $SERVICE_NAME port: $SERVICE_PORT at $HOST_PORT using network $NETWORK"
+    expose_port $NAME $SERVICE_NAME $SERVICE_PORT $HOST_PORT $NETWORK
     ;;
   "tools")
+    NAME="shipyard"
+    FOLDER=$(pwd)
+
+    while [[ $# -gt 0 ]]
+    do
+      case $1 in
+          --name)
+          NAME="$2"
+          shift # past argument
+          shift # past value
+          ;;
+          --folder)
+          FOLDER="$2"
+          shift # past argument
+          shift # past value
+          ;;
+          *)
+            shift
+            ;;
+      esac
+    done
+
     logo;
     check_latest;
     echo "## Running tools container";
     echo "";
-    tools $2;
+    tools $NAME $FOLDER;
     ;;
   "upgrade")
     logo;
@@ -385,43 +523,74 @@ case "$1" in
     uninstall;
     ;;
   "vscode")
+    NAME="shipyard"
+    FOLDER=$(pwd)
+
+    while [[ $# -gt 0 ]]
+    do
+      case $1 in
+          --name)
+          NAME="$2"
+          shift # past argument
+          shift # past value
+          ;;
+          --folder)
+          FOLDER="$2"
+          shift # past argument
+          shift # past value
+          ;;
+          *)
+            shift
+            ;;
+      esac
+    done
+
     logo;
     echo "## Starting VSCode in a browser"
-    vs_code;
+    vs_code $NAME $FOLDER;
     ;;
   "create")
     echo "### Creating Kubernetes cluster, this process will take approximately 2 minutes";
-    sleep 5;
+    echo ""
+
+    TYPE=$2
+    NAME=$3
+    CONSUL_PORT=$4
+    DASHBOARD_PORT=$5
+
+    export KUBECONFIG="$(pwd)/$NAME/kubeconfig.yml"
     
-    if [[ $2 == "k8s" ]]; then
-      install_cluster;
+    if [[ $TYPE == "k8s" ]]; then
+      install_cluster $NAME $CONSUL_PORT $DASHBOARD_PORT;
     else
-      install_cluster_k3s;
+      install_cluster_k3s $NAME $CONSUL_PORT $DASHBOARD_PORT;
     fi
 
-    install_core $1;
+    install_core;
     install_consul;
-    install_smi;
+    install_k8s;
 
     echo "";
     echo "### Setup complete:";
     echo "";
     echo "To interact with Kubernetes set your KUBECONFIG environment variable";
-    echo 'export KUBECONFIG="$HOME/.shipyard/kubeconfig.yml"';
+    echo "export KUBECONFIG=\"$HOME/.shipyard/$NAME/kubeconfig.yml\"";
     echo "";
-    echo "Consul can be accessed at: http://localhost:8500";
-    echo "Kubernetes dashboard can be accessed at: http://localhost:8443";
+    echo "Consul can be accessed at: http://localhost:$2";
+    echo "Kubernetes dashboard can be accessed at: http://localhost:$3";
     echo "";
     echo "To expose Kubernetes pods or services use the 'yard expose' command. e.g."
     echo "yard expose svc/myservice 8080 8080"
     echo ""
-    echo "When finished use 'yard down' to cleanup and remove resources";
+    echo "When finished use \"yard down\" to cleanup and remove resources";
     ;;
   "destroy")
-    if [[ $2 == "k3s" ]]; then
-      destroy_k3s;
+    TYPE=$2
+    NAME=$3
+    if [[ $TYPE == "k3s" ]]; then
+      destroy_k3s $NAME;
     else
-      destroy;
+      destroy $NAME;
     fi
     ;;
   *)
@@ -429,20 +598,34 @@ case "$1" in
     check_latest;
 
     echo "Options"
-    echo "  up [type]     - Start K8s server"
-    echo "                  options: k3s or k8s"
-    echo "                  default = k3s"
-    echo "  down          - Stop K8s server"
-    echo "  expose        - [ port / service] [k8s port] [host port] [docker network]"
-    echo "                  e.g. expose k8s service web-service on all ips port 9090"
-    echo "                  'yard expose svc/web-service 9090 9090'"
-    echo "  tools [path]  - Run tools container"
-    echo "  upgrade       - Upgrade yard to latest version"
-    echo "  uninstall     - Remove yard from this machine"
-    echo "  vscode        - Run VS Code in a browser"
+    echo "  up - Create a K8s server with Consul" 
+    echo "       options: "
+    echo "         --type (default k3s): select the type of cluser [k3s, k8s]"
+    echo "         --consul-port (default 8500): local port to expose for Consul" 
+    echo "         --dashboard-port (default 8443): local port for Kubnernetes dashboard" 
+    echo "         --name (default shipyard): name for the cluster"
+    echo "  down - Stop K8s server"
+    echo "         options: "
+    echo "           --name (default shipyard): name for the cluster"
+    echo "  expose - expose a kubernetes pod or service locally"
+    echo "       options: "
+    echo "         --service-name: name of the pod or service"
+    echo "         --service-port: port of the pod or service to expose"
+    echo "         --host-port: local port to expose pod or service on" 
+    echo "         --network: name of the docker network to connect the port to"
+    echo "         --name (default shipyard): name of the cluster"
+    echo "        e.g. expose k8s service web-service on all ips port 9090"
+    echo "          \"yard expose --service-name svc/web-service --service-port 9090 --host-port 9090\""
+    echo "  tools - Run tools container with Consul CLI, kubectl, etc."
+    echo "       options: "
+    echo "         --name (default shipyard): name of the cluster"
+    echo "         --folder (default $PWD): working folder to map to /work"
+    echo "  upgrade - Upgrade yard to latest version"
+    echo "  uninstall - Remove yard from this machine"
+    echo "  vscode - Run VS Code in a browser"
+    echo "       options: "
+    echo "         --name (default shipyard): name of the cluster"
+    echo "         --folder (default $PWD): working folder to map to /work"
     exit 1 
     ;;
 esac
-
-# yard expose svc/web-service 9090:9090
-
