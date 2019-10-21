@@ -610,7 +610,7 @@ case "$1" in
     echo "         --type (default k3s): select the type of cluser [k3s, k8s]"
     echo "         --consul-port (default 8500): local port to expose for Consul" 
     echo "         --dashboard-port (default 8443): local port for Kubnernetes dashboard" 
-    echo "         --consul-values ($HOME/.shipyard/config/consul-values.yml): Helm values to use for creating Consul" 
+    echo "         --consul-values ($HOME/.shipyard/config/consul-values.yml): Helm values to use when creating Consul" 
     echo "         --name (default shipyard): name for the cluster"
     echo "  down - Stop K8s server"
     echo "         options: "
