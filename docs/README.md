@@ -1,6 +1,6 @@
 # Shipyard - Beta
 
-**VERSION=0.1.6**
+**VERSION=0.1.7**
 
 Run disposable Consul Service Mesh and Kubernetes environments locally in Docker with either Rancher K3s or official
 Kubernetes distributions.
