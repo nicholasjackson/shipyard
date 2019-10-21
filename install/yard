@@ -208,8 +208,15 @@ function install_cluster_k3s() {
   docker pull hashicorp/consul-k8s:0.9.2 
   docker pull consul:1.6.1 
   docker pull envoyproxy/envoy-alpine:v1.10.0
-  k3d import-images -n $CLUSTER_NAME consul:1.6.1 envoyproxy/envoy-alpine:v1.10.0 hashicorp/consul-k8s:0.9.2
- 
+  docker pull kubernetesui/dashboard:v2.0.0-beta4
+  docker pull kubernetesui/metrics-scraper:v1.0.1
+  
+  k3d import-images -n $CLUSTER_NAME \
+    consul:1.6.1 \
+    envoyproxy/envoy-alpine:v1.10.0 \
+    hashicorp/consul-k8s:0.9.2 \
+    kubernetesui/dashboard:v2.0.0-beta4 \
+    kubernetesui/metrics-scraper:v1.0.1
   
   # Export KubeConfig
   mkdir -p /root/.config/k3d/$CLUSTER_NAME/
@@ -404,6 +411,9 @@ case "$1" in
     echo "Consul can be accessed at: http://localhost:8500";
     echo "Kubernetes dashboard can be accessed at: http://localhost:8443";
     echo "";
+    echo "To expose Kubernetes pods or services use the 'yard expose' command. e.g."
+    echo "yard expose svc/myservice 8080 8080"
+    echo ""
     echo "When finished use 'yard down' to cleanup and remove resources";
     ;;
   "destroy")
