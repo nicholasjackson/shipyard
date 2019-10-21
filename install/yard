@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION=0.1.8
+VERSION=0.1.9
 
 CONFIG=$HOME/.shipyard
 
@@ -15,6 +15,7 @@ function up() {
     -it \
     -v "/var/run/docker.sock:/var/run/docker.sock" \
     -v "$CONFIG:/files" \
+    -v "$5:/helm/consul-values.yaml" \
     -w "/files" nicholasjackson/consul-k8s-tools:$VERSION \
     bash -c "./yard create $1 $2 $3 $4"
 }
@@ -291,7 +292,7 @@ function install_consul() {
   echo ""
 
 	# Install the Consul helm chart	
-	helm install consul ./config/helm-charts/consul-helm-0.9.0
+	helm install -f /helm/consul-values.yaml consul ./config/helm-charts/consul-helm-0.9.0
 
   # Wait for Consul server to be ready
   echo "#### Waiting for Consul server to start"
@@ -373,6 +374,7 @@ case "$1" in
     DASHBOARD_PORT="8443"
     TYPE="k3s"
     NAME="shipyard"
+    CONSUL_VALUES="$CONFIG/config/helm-charts/consul-values.yaml"
 
     while [[ $# -gt 0 ]]
     do
@@ -397,6 +399,11 @@ case "$1" in
           shift # past argument
           shift # past value
           ;;    
+          --consul-values)
+          CONSUL_VALUES="$2"
+          shift # past argument
+          shift # past value
+          ;;    
         *)    # unknown option
           shift # past argument
           ;;
@@ -407,7 +414,7 @@ case "$1" in
     check_latest;
     echo "## Creating K8s cluster in Docker and installing Consul"
     echo ""
-    up $TYPE $NAME $CONSUL_PORT $DASHBOARD_PORT;
+    up $TYPE $NAME $CONSUL_PORT $DASHBOARD_PORT $CONSUL_VALUES;
     ;;
   "down")
     NAME="shipyard"
@@ -603,6 +610,7 @@ case "$1" in
     echo "         --type (default k3s): select the type of cluser [k3s, k8s]"
     echo "         --consul-port (default 8500): local port to expose for Consul" 
     echo "         --dashboard-port (default 8443): local port for Kubnernetes dashboard" 
+    echo "         --consul-values ($HOME/.shipyard/config/consul-values.yml): Helm values to use for creating Consul" 
     echo "         --name (default shipyard): name for the cluster"
     echo "  down - Stop K8s server"
     echo "         options: "
