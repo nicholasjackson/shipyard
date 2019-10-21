@@ -602,8 +602,8 @@ case "$1" in
     echo "To interact with Kubernetes set your KUBECONFIG environment variable";
     echo "export KUBECONFIG=\"\$HOME/.shipyard/$NAME/kubeconfig.yml\"";
     echo "";
-    echo "Consul can be accessed at: http://localhost:$2";
-    echo "Kubernetes dashboard can be accessed at: http://localhost:$3";
+    echo "Consul can be accessed at: http://localhost:$CONSUL_PORT";
+    echo "Kubernetes dashboard can be accessed at: http://localhost:$DASHBOARD_PORT";
     echo "";
     echo "To expose Kubernetes pods or services use the 'yard expose' command. e.g."
     echo "yard expose svc/myservice 8080 8080"
