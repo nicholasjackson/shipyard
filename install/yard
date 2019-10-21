@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION=0.1.9
+VERSION=0.1.10
 
 CONFIG=$HOME/.shipyard
 
@@ -40,9 +40,14 @@ function down() {
 function expose_port() {
   local NAME=$1
   local SERVICE_NAME=$2
-  local SERVICE_PORT=$3
-  local HOST_PORT=$4
-  local NETWORK_NAME=$5
+  local EXPOSE_MD5=$(echo -n "$@" | md5sum | awk '{print $1}')
+  local NETWORK_NAME=$3
+  local SERVICE_PORT=($@)
+
+  # Remove the other parameters
+  unset 'SERVICE_PORT[0]'
+  unset 'SERVICE_PORT[1]'
+  unset 'SERVICE_PORT[2]'
 
   LINKS="--link $NAME-control-plane \
          --link $NAME-worker"
@@ -52,20 +57,30 @@ function expose_port() {
     LINKS="--network k3d-$NAME"
   fi
 
+  COMMAND=""
+  PORTS=""
+  for port in ${SERVICE_PORT[@]}; do
+    # Split each pair
+    IFS=':' read -r -a PARTS <<< "$port"
+    COMMAND+="kubectl port-forward --address 0.0.0.0 $SERVICE_NAME ${PARTS[0]}:${PARTS[1]} & "
+    PORTS+=" -p ${PARTS[0]}:${PARTS[0]}"
+  done
+  COMMAND+="tail -f /dev/null"
+
   docker run \
     --rm -it \
     -d \
-    --name yard-$NAME-$SERVICE_PORT-$HOST_PORT \
-    -p $HOST_PORT:$SERVICE_PORT \
+    --name yard-$NAME-$EXPOSE_MD5\
+    $PORTS \
     -v $CONFIG:/files $FOLDER \
     -e "KUBECONFIG=/files/$NAME/kubeconfig-docker.yml" \
     $LINKS \
     nicholasjackson/consul-k8s-tools:$VERSION \
-    kubectl port-forward --address 0.0.0.0 $SERVICE_NAME $HOST_PORT $SERVICE_PORT
+    bash -c "$COMMAND"
 
   # Attach to a second network
-  if [[ ! -z $NETWORK_NAME ]]; then
-    docker network connect $NETWORK_NAME yard-$NAME-$SERVICE_PORT-$HOST_PORT
+  if [[ "$NETWORK_NAME" != "null" ]]; then
+    docker network connect $NETWORK_NAME yard-$NAME-$EXPOSE_MD5
   fi
 }
 
@@ -446,9 +461,8 @@ case "$1" in
     ;;
   "expose")
     SERVICE_NAME=""
-    SERVICE_PORT=""
-    HOST_PORT=""
-    NETWORK=""
+    SERVICE_PORT=()
+    NETWORK="null"
     NAME="shipyard"
 
     while [[ $# -gt 0 ]]
@@ -464,16 +478,11 @@ case "$1" in
           shift # past argument
           shift # past value
           ;;
-          --service-port)
-          SERVICE_PORT="$2"
+          --port)
+          SERVICE_PORT+=("$2")
           shift # past argument
           shift # past value
           ;;
-          --host-port)
-          HOST_PORT="$2"
-          shift # past argument
-          shift # past value
-          ;;    
           --network)
           NETWORK="$2"
           shift # past argument
@@ -485,10 +494,20 @@ case "$1" in
       esac
     done
 
+    if [[ "$SERVICE_NAME" == "" ]]; then
+      echo "Flag --service-name is required"
+      exit 1
+    fi
+    
+    if [[ "${#SERVICE_PORT[@]}" == "0" ]]; then
+      echo "Flag --service-name is required"
+      exit 1
+    fi
+
     logo;
     check_latest;
-    echo "## Expose service: $SERVICE_NAME port: $SERVICE_PORT at $HOST_PORT using network $NETWORK"
-    expose_port $NAME $SERVICE_NAME $SERVICE_PORT $HOST_PORT $NETWORK
+    echo "## Expose service: $SERVICE_NAME ports: ${SERVICE_PORT[@]} using network $NETWORK"
+    expose_port $NAME $SERVICE_NAME $NETWORK ${SERVICE_PORT[@]}
     ;;
   "tools")
     NAME="shipyard"
@@ -610,7 +629,7 @@ case "$1" in
     echo "         --type (default k3s): select the type of cluser [k3s, k8s]"
     echo "         --consul-port (default 8500): local port to expose for Consul" 
     echo "         --dashboard-port (default 8443): local port for Kubnernetes dashboard" 
-    echo "         --consul-values ($HOME/.shipyard/config/consul-values.yml): Helm values to use for creating Consul" 
+    echo "         --consul-values ($HOME/.shipyard/config/consul-values.yml): Helm values to use when creating Consul" 
     echo "         --name (default shipyard): name for the cluster"
     echo "  down - Stop K8s server"
     echo "         options: "
@@ -618,12 +637,12 @@ case "$1" in
     echo "  expose - expose a kubernetes pod or service locally"
     echo "       options: "
     echo "         --service-name: name of the pod or service"
-    echo "         --service-port: port of the pod or service to expose"
-    echo "         --host-port: local port to expose pod or service on" 
+    echo "         --port: [local:service] local and service ports to expose e.g. 8500:8500." 
+    echo "                 --port can be specified multiple times." 
     echo "         --network: name of the docker network to connect the port to"
     echo "         --name (default shipyard): name of the cluster"
-    echo "        e.g. expose k8s service web-service on all ips port 9090"
-    echo "          \"yard expose --service-name svc/web-service --service-port 9090 --host-port 9090\""
+    echo "        e.g. expose k8s service web-service on all ips port 9090 and 9091"
+    echo "          \"yard expose --service-name svc/web-service --port 9090:9090 --port 9091:9091\""
     echo "  tools - Run tools container with Consul CLI, kubectl, etc."
     echo "       options: "
     echo "         --name (default shipyard): name of the cluster"

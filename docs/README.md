@@ -1,6 +1,6 @@
 # Shipyard - Beta
 
-**VERSION=0.1.9**
+**VERSION=0.1.10**
 
 Run disposable Consul Service Mesh and Kubernetes environments locally in Docker with either Rancher K3s or official
 Kubernetes distributions.
@@ -129,7 +129,14 @@ Assuming a service called `web-service` which is accessible on port `80` is runn
 command can be used to access the service locally using the address `localhost:10000`.
 
 ```
-yard expose svc/web-service 10000 80
+yard expose --service-name svc/web-service -port 10000:80
+```
+
+It is also possible to expose multiple ports from the same service by specifying the
+`--port` flag multiple times
+
+```
+yard expose --service-name svc/web-service -port 10000:80 -port 10001:81
 ```
 
 ## Dashboards
