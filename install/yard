@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION=0.1.6
+VERSION=0.1.7
 
 export KUBECONFIG="$(pwd)/kubeconfig.yml"
 CLUSTER_NAME=shipyard
@@ -22,6 +22,9 @@ function up() {
 }
 
 function down() {
+  # get forwarded ports and delete
+  docker rm -f $(docker ps -q --filter "name=^yard-")
+
   docker run \
     --rm \
     --network host \
@@ -30,6 +33,33 @@ function down() {
     -v "$CONFIG:/files" \
     -w "/files" nicholasjackson/consul-k8s-tools:$VERSION \
     bash -c "./yard destroy $1"
+}
+
+function expose_port() {
+  LINKS="--link $CLUSTER_NAME-control-plane \
+         --link $CLUSTER_NAME-worker"
+
+  # read from state to determine server type
+  if [ $(cat $CONFIG/state) == "k3s" ]; then
+    LINKS="--network k3d-$CLUSTER_NAME"
+  fi
+
+
+  docker run \
+    --rm -it \
+    -d \
+    --name yard-$2-$3 \
+    -p $3:$2 \
+    -v $CONFIG:/files $FOLDER \
+    -e "KUBECONFIG=/files/kubeconfig-docker.yml" \
+    $LINKS \
+    nicholasjackson/consul-k8s-tools:$VERSION \
+    kubectl port-forward --address 0.0.0.0 $1 $2 $3
+
+  # Attach to a second network
+  if [[ ! -z $4 ]]; then
+    docker network connect $4 yard-$2-$3
+  fi
 }
 
 function tools() {
@@ -41,7 +71,7 @@ function tools() {
     FOLDER="-v $1:/work"
   fi;
 
-  echo "To expose service in Kubernetes to localhost use kubernetes"
+  echo "To expose service in Kubernetes to localhost use:"
   echo "port forwarding e.g."
   echo ""
   echo "kubectl port-forward --address 0.0.0.0 svc/myservice 10000:80"
@@ -172,10 +202,23 @@ function install_cluster_k3s() {
 	echo "#### Create Kubernetes cluster in Docker using K3s"
   echo ""
 
-  k3d create -n $CLUSTER_NAME --publish 8500:30443 --publish 8443:30444
+  k3d create -n $CLUSTER_NAME --publish 8500:30443 --publish 8443:30444 --wait 60
+
+  # Cache images locally for faster startup
+  docker pull hashicorp/consul-k8s:0.9.2 
+  docker pull consul:1.6.1 
+  docker pull envoyproxy/envoy-alpine:v1.10.0
+  docker pull kubernetesui/dashboard:v2.0.0-beta4
+  docker pull kubernetesui/metrics-scraper:v1.0.1
+  
+  k3d import-images -n $CLUSTER_NAME \
+    consul:1.6.1 \
+    envoyproxy/envoy-alpine:v1.10.0 \
+    hashicorp/consul-k8s:0.9.2 \
+    kubernetesui/dashboard:v2.0.0-beta4 \
+    kubernetesui/metrics-scraper:v1.0.1
   
   # Export KubeConfig
-  sleep 10 ## Wait for start before grabbing config
   mkdir -p /root/.config/k3d/$CLUSTER_NAME/
   k3d get-kubeconfig -n $CLUSTER_NAME
   mv /root/.config/k3d/$CLUSTER_NAME/kubeconfig.yaml ./kubeconfig.yml
@@ -212,10 +255,10 @@ function install_core() {
 	# Create cluster role binding for tiller
 	kubectl create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
 
-	echo "#### Install Helm tiller" 
-  echo ""
-	# Initialize tiller and wait for complete
-	helm init --wait --service-account tiller
+	#echo "#### Install Helm tiller" 
+  #echo ""
+	## Initialize tiller and wait for complete
+	#helm init --wait --service-account tiller
 }
 
 function install_consul() {
@@ -223,7 +266,7 @@ function install_consul() {
   echo ""
 
 	# Install the Consul helm chart	
-	helm install -n consul ./config/helm-charts/consul-helm-0.9.0
+	helm install consul ./config/helm-charts/consul-helm-0.9.0
 
   # Wait for Consul server to be ready
   echo "#### Waiting for Consul server to start"
@@ -292,6 +335,7 @@ function logo() {
   echo '.----)   |   |  |  |  | |  | |  |          |  |  /  _____  \  |  |\  \----.|  .--.  |'
   echo '|_______/    |__|  |__| |__| | _|          |__| /__/     \__\ | _| `._____||_______/ '
   echo ""
+  echo "Version $VERSION"
   echo ""
   echo ""
 }
@@ -317,37 +361,11 @@ case "$1" in
       down "k8s";
     fi
     ;;
-  "create")
-    echo "### Creating Kubernetes cluster, this process will take approximately 2 minutes";
-    sleep 5;
-    
-    if [[ $2 == "k8s" ]]; then
-      install_cluster;
-    else
-      install_cluster_k3s;
-    fi
-
-    install_core $1;
-    install_consul;
-    install_smi;
-
-    echo "";
-    echo "### Setup complete:";
-    echo "";
-    echo "To interact with Kubernetes set your KUBECONFIG environment variable";
-    echo 'export KUBECONFIG="$HOME/.shipyard/kubeconfig.yml"';
-    echo "";
-    echo "Consul can be accessed at: http://localhost:8500";
-    echo "Kubernetes dashboard can be accessed at: http://localhost:8443";
-    echo "";
-    echo "When finished use 'yard down' to cleanup and remove resources";
-    ;;
-  "destroy")
-    if [[ $2 == "k3s" ]]; then
-      destroy_k3s;
-    else
-      destroy;
-    fi
+  "expose")
+    logo;
+    check_latest;
+    echo "## Expose service: $2 port: $3 at $4"
+    expose_port $2 $3 $4 $5
     ;;
   "tools")
     logo;
@@ -371,6 +389,41 @@ case "$1" in
     echo "## Starting VSCode in a browser"
     vs_code;
     ;;
+  "create")
+    echo "### Creating Kubernetes cluster, this process will take approximately 2 minutes";
+    sleep 5;
+    
+    if [[ $2 == "k8s" ]]; then
+      install_cluster;
+    else
+      install_cluster_k3s;
+    fi
+
+    install_core $1;
+    install_consul;
+    install_smi;
+
+    echo "";
+    echo "### Setup complete:";
+    echo "";
+    echo "To interact with Kubernetes set your KUBECONFIG environment variable";
+    echo 'export KUBECONFIG="$HOME/.shipyard/kubeconfig.yml"';
+    echo "";
+    echo "Consul can be accessed at: http://localhost:8500";
+    echo "Kubernetes dashboard can be accessed at: http://localhost:8443";
+    echo "";
+    echo "To expose Kubernetes pods or services use the 'yard expose' command. e.g."
+    echo "yard expose svc/myservice 8080 8080"
+    echo ""
+    echo "When finished use 'yard down' to cleanup and remove resources";
+    ;;
+  "destroy")
+    if [[ $2 == "k3s" ]]; then
+      destroy_k3s;
+    else
+      destroy;
+    fi
+    ;;
   *)
     logo;
     check_latest;
@@ -380,6 +433,9 @@ case "$1" in
     echo "                  options: k3s or k8s"
     echo "                  default = k3s"
     echo "  down          - Stop K8s server"
+    echo "  expose        - [ port / service] [k8s port] [host port] [docker network]"
+    echo "                  e.g. expose k8s service web-service on all ips port 9090"
+    echo "                  'yard expose svc/web-service 9090 9090'"
     echo "  tools [path]  - Run tools container"
     echo "  upgrade       - Upgrade yard to latest version"
     echo "  uninstall     - Remove yard from this machine"
@@ -387,3 +443,6 @@ case "$1" in
     exit 1 
     ;;
 esac
+
+# yard expose svc/web-service 9090:9090
+

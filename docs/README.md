@@ -1,6 +1,6 @@
 # Shipyard - Beta
 
-**VERSION=0.1.6**
+**VERSION=0.1.7**
 
 Run disposable Consul Service Mesh and Kubernetes environments locally in Docker with either Rancher K3s or official
 Kubernetes distributions.
@@ -123,15 +123,13 @@ root@docker-desktop:/work#
 ```
 
 ## Exposing Kubernetes services
-To access services and pods running in the Kubernetes cluster `kubectl port-forward` can be used.
+To access services and pods running in the Kubernetes cluster `yard expose` can be used.
 
 Assuming a service called `web-service` which is accessible on port `80` is running in Kubernetes, the following
 command can be used to access the service locally using the address `localhost:10000`.
 
-The command will work either using a local version of `kubectl` or using `kubectl` inside the tools container.
-
 ```
-kubectl port-forward --address 0.0.0.0 svc/web-service 10000:80
+yard expose svc/web-service 10000 80
 ```
 
 ## Dashboards
