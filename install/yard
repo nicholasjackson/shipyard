@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 VERSION=0.1.10
 
 CONFIG=$HOME/.shipyard
@@ -42,12 +42,16 @@ function expose_port() {
   local SERVICE_NAME=$2
   local EXPOSE_MD5=$(echo -n "$@" | md5sum | awk '{print $1}')
   local NETWORK_NAME=$3
+  local NETWORK_IP=$4
+  local BIND_IP=$5
   local SERVICE_PORT=($@)
 
   # Remove the other parameters
   unset 'SERVICE_PORT[0]'
   unset 'SERVICE_PORT[1]'
   unset 'SERVICE_PORT[2]'
+  unset 'SERVICE_PORT[3]'
+  unset 'SERVICE_PORT[4]'
 
   LINKS="--link $NAME-control-plane \
          --link $NAME-worker"
@@ -63,7 +67,10 @@ function expose_port() {
     # Split each pair
     IFS=':' read -r -a PARTS <<< "$port"
     COMMAND+="kubectl port-forward --address 0.0.0.0 $SERVICE_NAME ${PARTS[0]}:${PARTS[1]} & "
-    PORTS+=" -p ${PARTS[0]}:${PARTS[0]}"
+
+    if [[ "$BIND_IP" != "none" ]]; then
+      PORTS+=" -p $BIND_IP:${PARTS[0]}:${PARTS[0]}"
+    fi
   done
   COMMAND+="tail -f /dev/null"
 
@@ -78,9 +85,15 @@ function expose_port() {
     nicholasjackson/consul-k8s-tools:$VERSION \
     bash -c "$COMMAND"
 
+  if [[ "$NETWORK_IP" != "auto" ]]; then
+    NETWORK_IP="--ip $NETWORK_IP"
+  else
+    NETWORK_IP=""
+  fi
+
   # Attach to a second network
   if [[ "$NETWORK_NAME" != "null" ]]; then
-    docker network connect $NETWORK_NAME yard-$NAME-$EXPOSE_MD5
+    docker network connect $NETWORK_NAME yard-$NAME-$EXPOSE_MD5 $NETWORK_IP
   fi
 }
 
@@ -463,6 +476,8 @@ case "$1" in
     SERVICE_NAME=""
     SERVICE_PORT=()
     NETWORK="null"
+    NETWORK_IP="auto"
+    BIND_IP="0.0.0.0"
     NAME="shipyard"
 
     while [[ $# -gt 0 ]]
@@ -483,8 +498,18 @@ case "$1" in
           shift # past argument
           shift # past value
           ;;
+          --bind-ip)
+          BIND_IP="$2"
+          shift # past argument
+          shift # past value
+          ;;    
           --network)
           NETWORK="$2"
+          shift # past argument
+          shift # past value
+          ;;    
+          --network-ip)
+          NETWORK_IP="$2"
           shift # past argument
           shift # past value
           ;;    
@@ -507,7 +532,7 @@ case "$1" in
     logo;
     check_latest;
     echo "## Expose service: $SERVICE_NAME ports: ${SERVICE_PORT[@]} using network $NETWORK"
-    expose_port $NAME $SERVICE_NAME $NETWORK ${SERVICE_PORT[@]}
+    expose_port $NAME $SERVICE_NAME $NETWORK $NETWORK_IP $BIND_IP ${SERVICE_PORT[@]}
     ;;
   "tools")
     NAME="shipyard"
@@ -639,7 +664,10 @@ case "$1" in
     echo "         --service-name: name of the pod or service"
     echo "         --port: [local:service] local and service ports to expose e.g. 8500:8500." 
     echo "                 --port can be specified multiple times." 
+    echo "         --bind-ip (default 0.0.0.0): ip address to bind to"
+    echo "                                      use value \"none\" disable host binding."
     echo "         --network: name of the docker network to connect the port to"
+    echo "         --network-ip (default allocated by Docker): ip in the docker network to allocate"
     echo "         --name (default shipyard): name of the cluster"
     echo "        e.g. expose k8s service web-service on all ips port 9090 and 9091"
     echo "          \"yard expose --service-name svc/web-service --port 9090:9090 --port 9091:9091\""
