@@ -13,21 +13,25 @@
 # you will see them accessed via {{ site.title }}, {{ site.email }}, and so on.
 # You can create any custom variable you would like, and they will be accessible
 # in the templates via {{ site.myvariable }}.
+theme: just-the-docs
+color_scheme: "dark"
+heading_anchors: true
+
 title: Shipyard
-email: jackson.nic@gmail.com
-description: >- # this means to ignore newlines until "baseurl:"
-  Shipyard is a tool for creating local Kubernetes and Consul Service mesh development
-  environments.
 baseurl: "" # the subpath of your site, e.g. /blog
 url: "" # the base hostname & protocol for your site, e.g. http://example.com
-twitter_username: jekyllrb
-github_username:  jekyll
+
+twitter_username: sheriffjackson
+github_username:  nicholas jackson
+email: jackson.nic@gmail.com
 
 # Build settings
 markdown: kramdown
-theme: just-the-docs
-plugins:
-  - jekyll-feed
+
+search_enabled: true
+# Set the search token separator for hyphenated-word search:
+search_tokenizer_separator: /[\s/]+/
+
 
 # Exclude from processing.
 # The following items will not be processed, by default. Create a custom list
