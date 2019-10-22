@@ -1,5 +1,5 @@
 #!/bin/bash -e
-VERSION=0.1.12
+VERSION=0.1.13
 
 CONFIG=$HOME/.shipyard
 
@@ -9,15 +9,22 @@ if [[ ! -z $CONFIG_TMP ]]; then
 fi
 
 function up() {
+  local  TYPE=$1
+  local  NAME=$2
+  local  CONSUL_PORT=$3
+  local  DASHBOARD_PORT=$4
+  local  CONSUL_VALUES=$5
+  local  NETWORK=$6
+
   docker run \
     --rm \
     --network host \
     -it \
     -v "/var/run/docker.sock:/var/run/docker.sock" \
     -v "$CONFIG:/files" \
-    -v "$5:/helm/consul-values.yaml" \
+    -v "$CONSUL_VALUES:/helm/consul-values.yaml" \
     -w "/files" nicholasjackson/consul-k8s-tools:$VERSION \
-    bash -c "./yard create $1 $2 $3 $4"
+    bash -c "./yard create $TYPE $NAME $CONSUL_PORT $DASHBOARD_PORT $NETWORK"
 }
 
 function down() {
@@ -219,6 +226,7 @@ function install_cluster() {
   local CLUSTER_NAME=$1
   local CONSUL_PORT=$2
   local DASHBOARD_PORT=$3 
+  local NETWORK_NAME=$4
 
 	echo "#### Create Kubernetes cluster in Docker"
   echo ""
@@ -258,12 +266,19 @@ EOF
   
   # write to the state file
   echo "k8s" > ./$CLUSTER_NAME/state
+  
+  # Attach to a second network
+  if [[ "$NETWORK_NAME" != "null" ]]; then
+    docker network connect $NETWORK_NAME $CLUSTER_NAME-control-plane
+    docker network connect $NETWORK_NAME $CLUSTER_NAME-worker
+  fi
 }
 
 function install_cluster_k3s() {
   local CLUSTER_NAME=$1
   local CONSUL_PORT=$2
   local DASHBOARD_PORT=$3 
+  local NETWORK_NAME=$4
 
 	echo "#### Create Kubernetes cluster in Docker using K3s"
   echo ""
@@ -299,6 +314,11 @@ function install_cluster_k3s() {
   
   # write to the state file
   echo "k3s" > ./$CLUSTER_NAME/state
+
+  # Attach to a second network
+  if [[ "$NETWORK_NAME" != "null" ]]; then
+    docker network connect $NETWORK_NAME k3d-$CLUSTER_NAME-server
+  fi
 }
 
 function install_core() {
@@ -406,6 +426,7 @@ case "$1" in
     TYPE="k3s"
     NAME="shipyard"
     CONSUL_VALUES="$CONFIG/config/helm-charts/consul-values.yaml"
+    NETWORK="null"
 
     while [[ $# -gt 0 ]]
     do
@@ -435,6 +456,11 @@ case "$1" in
           shift # past argument
           shift # past value
           ;;    
+          --network)
+          NETWORK="$2"
+          shift # past argument
+          shift # past value
+          ;;    
         *)    # unknown option
           shift # past argument
           ;;
@@ -445,7 +471,7 @@ case "$1" in
     check_latest;
     echo "## Creating K8s cluster in Docker and installing Consul"
     echo ""
-    up $TYPE $NAME $CONSUL_PORT $DASHBOARD_PORT $CONSUL_VALUES;
+    up $TYPE $NAME $CONSUL_PORT $DASHBOARD_PORT $CONSUL_VALUES $NETWORK;
     ;;
   "down")
     NAME="shipyard"
@@ -611,13 +637,14 @@ case "$1" in
     NAME=$3
     CONSUL_PORT=$4
     DASHBOARD_PORT=$5
+    NETWORK=$6
 
     export KUBECONFIG="$(pwd)/$NAME/kubeconfig.yml"
     
     if [[ $TYPE == "k8s" ]]; then
-      install_cluster $NAME $CONSUL_PORT $DASHBOARD_PORT;
+      install_cluster $NAME $CONSUL_PORT $DASHBOARD_PORT $NETWORK;
     else
-      install_cluster_k3s $NAME $CONSUL_PORT $DASHBOARD_PORT;
+      install_cluster_k3s $NAME $CONSUL_PORT $DASHBOARD_PORT $NETWORK;
     fi
 
     install_core;
@@ -659,6 +686,7 @@ case "$1" in
     echo "         --dashboard-port (default 8443): local port for Kubnernetes dashboard" 
     echo "         --consul-values ($HOME/.shipyard/config/consul-values.yml): Helm values to use when creating Consul" 
     echo "         --name (default shipyard): name for the cluster"
+    echo "         --network: attach cluster to an additional docker network"
     echo "  down - Stop K8s server"
     echo "         options: "
     echo "           --name (default shipyard): name for the cluster"
