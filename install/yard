@@ -1,5 +1,5 @@
 #!/bin/bash -e
-VERSION=0.1.11
+VERSION=0.1.12
 
 CONFIG=$HOME/.shipyard
 
@@ -25,7 +25,10 @@ function down() {
   local NAME=$2
 
   # get forwarded ports and delete
-  docker rm -f $(docker ps -q --filter "name=^yard-$NAME-")
+  FORWARDED=$(docker ps -q --filter "name=^yard-$NAME-")
+  if [[ "$FORWARDED" != "" ]]; then
+    docker rm -f $FORWARDED
+  fi
 
   docker run \
     --rm \
