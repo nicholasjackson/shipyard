@@ -42,8 +42,12 @@ To create a local Kubernetes and Consul cluster run:
 yard up
 ```
 
+# Demo
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/jV8Jeuxb4ok" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
 # Quick Start
-The following guide will show how to create a new cluster using Shipyard.
+The following guide will show how to create a new cluster using Shipyard. Detailed info regarding all configurable options can be found in the [Creating Clusters](creating_clusters.html) doc.
 
 ## Creating a cluster
 To create a Kubernetes cluster with Consul pre-installed use the following command:
@@ -112,9 +116,56 @@ consul-consul-server-0  10.42.0.10:8301  alive   server  1.6.1  2         dc1  <
 k3d-shipyard-server     10.42.0.5:8301   alive   client  1.6.1  2         dc1  <default>
 ```
 
-## Consul UI
-The Consul UI is available at the following URL
+## Consul UI and CLI
+By default Shipyard exposes the Consul UI at the following URL [http://localhost:8500/ui/](http://localhost:8500/ui/)
 
-## Kubernetes Dashboard
+![](images/consul_ui.png)
+
+This URI is also the default for the Consul CLI:
+
+```
+➜ consul members
+Node                    Address          Status  Type    Build  Protocol  DC   Segment
+consul-consul-server-0  10.42.0.10:8301  alive   server  1.6.1  2         dc1  <all>
+k3d-shipyard-server     10.42.0.6:8301   alive   client  1.6.1  2         dc1  <default>
+```
+
+## Kubernetes Dashboard and kubectl
+Shipyard exposes the Kubernetes API server locally and exports the required Kubernetes config file to the path `$HOME/.shipyard/shipyard/kubeconfig.yml`. To use Shipyard and `kubectl` you can set the  environment variable `KUBECONFIG` to this path and use `kubectl` as normal.
+
+```
+➜ export KUBECONFIG=$HOME/.shipyard/shipyard/kubeconfig.yml
+
+➜ kubectl get pods
+NAME                                                              READY   STATUS    RESTARTS   AGE
+consul-consul-connect-injector-webhook-deployment-c46d9888gqz9s   1/1     Running   0          14m
+consul-consul-server-0                                            1/1     Running   0          14m
+consul-consul-jsjmn                                               1/1     Running   0          14m
+```
+
+The Kubernetes dashboard is also available by default at [http://localhost:8443](http://localhost:8443), authentication has been disabled for this.
+
+![](images/k8s_dashboard.png)
 
 ## Deleting your cluster
+Once you have finished with your cluster it can be deleted with the following command:
+
+```
+➜ yard down
+
+     _______. __    __   __  .______   ____    ____  ___      .______       _______
+    /       ||  |  |  | |  | |   _  \  \   \  /   / /   \     |   _  \     |       \
+   |   (----`|  |__|  | |  | |  |_)  |  \   \/   / /  ^  \    |  |_)  |    |  .--.  |
+    \   \    |   __   | |  | |   ___/    \_    _/ /  /_\  \   |      /     |  |  |  |
+.----)   |   |  |  |  | |  | |  |          |  |  /  _____  \  |  |\  \----.|  .--.  |
+|_______/    |__|  |__| |__| | _|          |__| /__/     \__\ | _| `._____||_______/
+
+
+Version: 0.1.13
+
+## Stopping Kubernetes and cleaning resources
+INFO[0000] Removing cluster [shipyard]
+INFO[0000] ...Removing server
+INFO[0001] ...Removing docker image volume
+INFO[0001] Removed cluster [shipyard]
+```
