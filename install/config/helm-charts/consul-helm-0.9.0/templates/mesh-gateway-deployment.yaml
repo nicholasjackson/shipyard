@@ -122,8 +122,9 @@ spec:
             - |
               exec /consul-bin/consul connect envoy \
                 -mesh-gateway \
-                -register \
                 -address="${POD_IP}:{{ .Values.meshGateway.containerPort }}" \
+                -bind-address="default=0.0.0.0:{{ .Values.meshGateway.containerPort }}" \
+                -register \
                 -http-addr="${HOST_IP}:8500" \
                 -grpc-addr="${HOST_IP}:8502" \
                 {{- if .Values.meshGateway.wanAddress.host }}

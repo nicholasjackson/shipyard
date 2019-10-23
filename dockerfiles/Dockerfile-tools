@@ -8,6 +8,10 @@ RUN apt-get update && \
       curl \ 
       software-properties-common \
       zip \
+      vim \
+      net-tools \
+      dns-tools \
+      ngrep \
       gnupg-agent && \
       apt-get clean && \
       apt-get autoremove --purge
