@@ -1,5 +1,5 @@
 #!/bin/bash -e
-VERSION=0.1.13
+VERSION=0.1.14
 
 CONFIG=$HOME/.shipyard
 
@@ -110,6 +110,11 @@ function expose_port() {
 function tools() {
   local NAME=$1
   local FOLDER=$2
+  local COMMAND="bash"
+
+  if [[ "$3" != "" ]]; then
+    COMMAND="${@:3}"
+  fi
 
   echo "To expose service in Kubernetes to localhost use:"
   echo "port forwarding e.g."
@@ -138,6 +143,8 @@ function tools() {
 
     echo "Linking container $LINKS"
     echo "Setting environment $CONSUL_ENV"
+    echo ""
+    echo ""
 
     docker run \
       --rm -it \
@@ -149,7 +156,7 @@ function tools() {
       -e "KUBECONFIG=/files/$NAME/kubeconfig-docker.yml" \
       $CONSUL_ENV \
       $LINKS \
-      nicholasjackson/consul-k8s-tools:$VERSION bash
+      nicholasjackson/consul-k8s-tools:$VERSION $COMMAND
       
     exit 0
   fi
@@ -166,7 +173,7 @@ function tools() {
     -v $CONFIG:/files \
     -v $FOLDER:/work \
     -e "KUBECONFIG=/files/$NAME/kubeconfig.yml" \
-    nicholasjackson/consul-k8s-tools:$VERSION bash
+    nicholasjackson/consul-k8s-tools:$VERSION $COMMAND
 }
 
 function vs_code() {
@@ -592,6 +599,41 @@ case "$1" in
     echo "";
     tools $NAME $FOLDER;
     ;;
+  "exec")
+    NAME="shipyard"
+    FOLDER=$(pwd)
+    COMMAND=""
+
+    while [[ $# -gt 0 ]]
+    do
+      case $1 in
+          --name)
+          NAME="$2"
+          shift # past argument
+          shift # past value
+          ;;
+          --folder)
+          FOLDER="$2"
+          shift # past argument
+          shift # past value
+          ;;
+          --)
+          COMMAND=${@:2}
+          shift # past argument
+          shift # past value
+          ;;
+          *)
+            shift
+            ;;
+      esac
+    done
+
+    logo;
+    check_latest;
+    echo "## Running command $COMMAND on cluster $NAME";
+    echo "";
+    tools $NAME $FOLDER $COMMAND;
+    ;;
   "upgrade")
     logo;
     echo "Upgrading to latest version";
@@ -706,6 +748,13 @@ case "$1" in
     echo "       options: "
     echo "         --name (default shipyard): name of the cluster"
     echo "         --folder (default $PWD): working folder to map to /work"
+    echo "  exec - Run a command in the tools container"
+    echo "       options: "
+    echo "         --name (default shipyard): name of the cluster"
+    echo "         --folder (default $PWD): working folder to map to /work"
+    echo "         -- command to execute "
+    echo "        e.g. to apply a local Kubernetes config file:"
+    echo "            \"yard tools --folder \$PWD -- kubectl apply -f /work/myfile.yml\""
     echo "  upgrade - Upgrade yard to latest version"
     echo "  uninstall - Remove yard from this machine"
     echo "  vscode - Run VS Code in a browser"

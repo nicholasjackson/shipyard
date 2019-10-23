@@ -32,22 +32,22 @@ ENV PATH="$PATH:/usr/local/go/bin"
 ENV GOPATH="/home/coder/go"
 ENV GO111MODULE="on"
 
-# Install tools for VSCode
-RUN go get github.com/mdempsky/gocode && \
-    go get golang.org/x/tools/gopls && \
-    go get github.com/uudashr/gopkgs/cmd/gopkgs && \
-    go get github.com/ramya-rao-a/go-outline && \
-    go get github.com/acroca/go-symbols && \
-    go get golang.org/x/tools/cmd/guru && \
-    go get golang.org/x/tools/cmd/gorename && \
-    go get github.com/go-delve/delve/cmd/dlv && \
-    go get github.com/stamblerre/gocode && \
-    go get github.com/rogpeppe/godef && \
-    go get github.com/sqs/goreturns && \
-    go get golang.org/x/lint/golint && \
-    go get github.com/uudashr/gopkgs/cmd/gopkgs && \
-    go get github.com/stamblerre/gocode && \
-    go build -i -o $GOPATH/bin/gocode-gomod github.com/stamblerre/gocode
+# Install tools for VSCode // Currently broken due to uudashr/gopkgs
+# RUN go get github.com/mdempsky/gocode && \
+#     go get golang.org/x/tools/gopls && \
+#     go get github.com/uudashr/gopkgs/cmd/gopkgs && \
+#     go get github.com/ramya-rao-a/go-outline && \
+#     go get github.com/acroca/go-symbols && \
+#     go get golang.org/x/tools/cmd/guru && \
+#     go get golang.org/x/tools/cmd/gorename && \
+#     go get github.com/go-delve/delve/cmd/dlv && \
+#     go get github.com/stamblerre/gocode && \
+#     go get github.com/rogpeppe/godef && \
+#     go get github.com/sqs/goreturns && \
+#     go get golang.org/x/lint/golint && \
+#     go get github.com/uudashr/gopkgs/cmd/gopkgs && \
+#     go get github.com/stamblerre/gocode && \
+#     go build -i -o $GOPATH/bin/gocode-gomod github.com/stamblerre/gocode
 
 # extensions to code-server
 RUN code-server --install-extension ms-vscode.go

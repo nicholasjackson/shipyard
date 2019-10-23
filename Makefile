@@ -1,4 +1,4 @@
-VERSION=0.1.13
+VERSION=0.1.14
 IMAGE_TOOLS=nicholasjackson/consul-k8s-tools
 IMAGE_VSCODE=nicholasjackson/code-server
 
@@ -32,8 +32,8 @@ update_version:
 	sed -i.bak 's/^VERSION=.*/VERSION=$(version)/' ./install/yard
 	rm ./install/yard.bak
 	
-	sed -i.bak 's/^\*\*VERSION=.*/\*\*VERSION=$(version)\*\*/' ./docs/README.md
-	rm ./docs/README.md.bak
+	sed -i.bak 's/^\*\*VERSION=.*/\*\*VERSION=$(version)\*\*/' ./docs/index.md
+	rm ./docs/index.md.bak
 
 update_version_number_and_push: 
 ifndef version
