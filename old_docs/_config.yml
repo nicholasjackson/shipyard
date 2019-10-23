@@ -1,0 +1,4 @@
+theme: jekyll-theme-cayman
+
+title: Shipyard
+description: Simple tool to create Kubernetes and Consul Service Mesh dev environments in Docker.
