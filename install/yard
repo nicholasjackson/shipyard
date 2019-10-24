@@ -9,12 +9,13 @@ if [[ ! -z $CONFIG_TMP ]]; then
 fi
 
 function up() {
-  local  TYPE=$1
-  local  NAME=$2
-  local  CONSUL_PORT=$3
-  local  DASHBOARD_PORT=$4
-  local  CONSUL_VALUES=$5
-  local  NETWORK=$6
+  local TYPE=$1
+  local NAME=$2
+  local CONSUL_PORT=$3
+  local DASHBOARD_PORT=$4
+  local CONSUL_VALUES=$5
+  local NETWORK=$6
+  local NETWORK_IP=$7
 
   docker run \
     --rm \
@@ -24,7 +25,7 @@ function up() {
     -v "$CONFIG:/files" \
     -v "$CONSUL_VALUES:/helm/consul-values.yaml" \
     -w "/files" nicholasjackson/consul-k8s-tools:$VERSION \
-    bash -c "./yard create $TYPE $NAME $CONSUL_PORT $DASHBOARD_PORT $NETWORK"
+    bash -c "./yard create $TYPE $NAME $CONSUL_PORT $DASHBOARD_PORT $NETWORK $NETWORK_IP"
 }
 
 function down() {
@@ -457,6 +458,7 @@ case "$1" in
     NAME="shipyard"
     CONSUL_VALUES="$CONFIG/config/helm-charts/consul-values.yaml"
     NETWORK="null"
+    NETWORK_IP="auto"
 
     while [[ $# -gt 0 ]]
     do
@@ -492,7 +494,7 @@ case "$1" in
           shift # past value
           ;;    
           --network-ip)
-          NETWORK="$2"
+          NETWORK_IP="$2"
           shift # past argument
           shift # past value
           ;;    
