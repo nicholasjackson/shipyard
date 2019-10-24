@@ -33,6 +33,9 @@ search_enabled: true
 # Set the search token separator for hyphenated-word search:
 search_tokenizer_separator: /[\s/]+/
 
+plugins:
+  - jekyll-remote-theme
+
 
 # Exclude from processing.
 # The following items will not be processed, by default. Create a custom list
