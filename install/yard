@@ -1,5 +1,5 @@
 #!/bin/bash -e
-VERSION=0.1.15
+VERSION=0.1.14
 
 CONFIG=$HOME/.shipyard
 
@@ -234,6 +234,7 @@ function install_cluster() {
   local CONSUL_PORT=$2
   local DASHBOARD_PORT=$3 
   local NETWORK_NAME=$4
+  local NETWORK_IP=$5
 
 	echo "#### Create Kubernetes cluster in Docker"
   echo ""
@@ -273,11 +274,18 @@ EOF
   
   # write to the state file
   echo "k8s" > ./$CLUSTER_NAME/state
+ 
+  # are we using a custom ip for the docker network
+  if [[ "$NETWORK_IP" != "auto" ]]; then
+    NETWORK_IP="--ip $NETWORK_IP"
+  else
+    NETWORK_IP=""
+  fi
   
   # Attach to a second network
   if [[ "$NETWORK_NAME" != "null" ]]; then
     docker network connect $NETWORK_NAME $CLUSTER_NAME-control-plane
-    docker network connect $NETWORK_NAME $CLUSTER_NAME-worker
+    docker network connect $NETWORK_NAME $CLUSTER_NAME-worker $NETWORK_IP
   fi
 }
 
@@ -286,6 +294,7 @@ function install_cluster_k3s() {
   local CONSUL_PORT=$2
   local DASHBOARD_PORT=$3 
   local NETWORK_NAME=$4
+  local NETWORK_IP=$5
 
 	echo "#### Create Kubernetes cluster in Docker using K3s"
   echo ""
@@ -328,10 +337,17 @@ function install_cluster_k3s() {
   
   # write to the state file
   echo "k3s" > ./$CLUSTER_NAME/state
+  
+  # are we using a custom ip for the docker network
+  if [[ "$NETWORK_IP" != "auto" ]]; then
+    NETWORK_IP="--ip $NETWORK_IP"
+  else
+    NETWORK_IP=""
+  fi
 
   # Attach to a second network
   if [[ "$NETWORK_NAME" != "null" ]]; then
-    docker network connect $NETWORK_NAME k3d-$CLUSTER_NAME-server
+    docker network connect $NETWORK_NAME k3d-$CLUSTER_NAME-server $NETWORK_IP
   fi
 }
 
@@ -475,6 +491,11 @@ case "$1" in
           shift # past argument
           shift # past value
           ;;    
+          --network-ip)
+          NETWORK="$2"
+          shift # past argument
+          shift # past value
+          ;;    
         *)    # unknown option
           shift # past argument
           ;;
@@ -485,7 +506,7 @@ case "$1" in
     check_latest;
     echo "## Creating K8s cluster in Docker and installing Consul"
     echo ""
-    up $TYPE $NAME $CONSUL_PORT $DASHBOARD_PORT $CONSUL_VALUES $NETWORK;
+    up $TYPE $NAME $CONSUL_PORT $DASHBOARD_PORT $CONSUL_VALUES $NETWORK $NETWORK_IP;
     ;;
   "down")
     NAME="shipyard"
@@ -687,13 +708,14 @@ case "$1" in
     CONSUL_PORT=$4
     DASHBOARD_PORT=$5
     NETWORK=$6
+    NETWORK_IP=$7
 
     export KUBECONFIG="$(pwd)/$NAME/kubeconfig.yml"
     
     if [[ $TYPE == "k8s" ]]; then
-      install_cluster $NAME $CONSUL_PORT $DASHBOARD_PORT $NETWORK;
+      install_cluster $NAME $CONSUL_PORT $DASHBOARD_PORT $NETWORK $NETWORK_IP;
     else
-      install_cluster_k3s $NAME $CONSUL_PORT $DASHBOARD_PORT $NETWORK;
+      install_cluster_k3s $NAME $CONSUL_PORT $DASHBOARD_PORT $NETWORK $NETWORK_IP;
     fi
 
     install_core;
@@ -736,6 +758,7 @@ case "$1" in
     echo "         --consul-values ($HOME/.shipyard/config/consul-values.yml): Helm values to use when creating Consul" 
     echo "         --name (default shipyard): name for the cluster"
     echo "         --network: attach cluster to an additional docker network"
+    echo "         --network-ip (default allocated by Docker): ip in the docker network to allocate"
     echo "  down - Stop K8s server"
     echo "         options: "
     echo "           --name (default shipyard): name for the cluster"
