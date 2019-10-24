@@ -293,7 +293,14 @@ function install_cluster_k3s() {
   # Generate a random API server port
   API_SERVER_PORT=$(shuf -i 64000-65000 -n 1)
   
-  k3d create -n $CLUSTER_NAME --publish $CONSUL_PORT:30443 --publish $DASHBOARD_PORT:30444 --wait 60 --api-port $API_SERVER_PORT
+  k3d create \
+    -n $CLUSTER_NAME \
+    --publish $CONSUL_PORT:30443 \
+    --publish $DASHBOARD_PORT:30444 \
+    --wait 60 \
+    --api-port $API_SERVER_PORT \
+    --image rancher/k3s:v0.9.1
+
 
   # Cache images locally for faster startup
   docker pull hashicorp/consul-k8s:0.9.2 
