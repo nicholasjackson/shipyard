@@ -13,8 +13,9 @@
 # you will see them accessed via {{ site.title }}, {{ site.email }}, and so on.
 # You can create any custom variable you would like, and they will be accessible
 # in the templates via {{ site.myvariable }}.
+---
 theme: just-the-docs
-remote_theme: pmarsceill/just-the-docs@2.7.1
+remote_theme: pmarsceill/just-the-docs@v0.2.7
 color_scheme: "dark"
 heading_anchors: true
 
@@ -23,7 +24,7 @@ baseurl: "" # the subpath of your site, e.g. /blog
 url: "" # the base hostname & protocol for your site, e.g. http://example.com
 
 twitter_username: sheriffjackson
-github_username:  nicholas jackson
+github_username:  nicholasjackson
 email: jackson.nic@gmail.com
 
 # Build settings
@@ -35,7 +36,6 @@ search_tokenizer_separator: /[\s/]+/
 
 plugins:
   - jekyll-remote-theme
-
 
 # Exclude from processing.
 # The following items will not be processed, by default. Create a custom list
