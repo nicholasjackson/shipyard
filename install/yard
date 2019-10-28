@@ -16,6 +16,7 @@ function up() {
   local CONSUL_VALUES=$5
   local NETWORK=$6
   local NETWORK_IP=$7
+  local DOCKER_IMAGES=${@:8}
 
   docker run \
     --rm \
@@ -25,7 +26,7 @@ function up() {
     -v "$CONFIG:/files" \
     -v "$CONSUL_VALUES:/helm/consul-values.yaml" \
     -w "/files" nicholasjackson/consul-k8s-tools:$VERSION \
-    bash -c "./yard create $TYPE $NAME $CONSUL_PORT $DASHBOARD_PORT $NETWORK $NETWORK_IP"
+    bash -c "./yard create $TYPE $NAME $CONSUL_PORT $DASHBOARD_PORT $NETWORK $NETWORK_IP $DOCKER_IMAGES"
 }
 
 function down() {
@@ -296,6 +297,7 @@ function install_cluster_k3s() {
   local DASHBOARD_PORT=$3 
   local NETWORK_NAME=$4
   local NETWORK_IP=$5
+  local DOCKER_IMAGES=(${@:6})
 
 	echo "#### Create Kubernetes cluster in Docker using K3s"
   echo ""
@@ -311,20 +313,23 @@ function install_cluster_k3s() {
     --api-port $API_SERVER_PORT \
     --image rancher/k3s:v0.9.1
 
+  # add the default images to the list of custom images
+  DOCKER_IMAGES+=("hashicorp/consul-k8s:0.9.2")
+  DOCKER_IMAGES+=("consul:1.6.1")
+  DOCKER_IMAGES+=("envoyproxy/envoy-alpine:v1.10.0")
+  DOCKER_IMAGES+=("kubernetesui/dashboard:v2.0.0-beta4")
+  DOCKER_IMAGES+=("kubernetesui/metrics-scraper:v1.0.1")
+  DOCKER_IMAGES+=("rancher/local-path-provisioner:v0.0.11")
 
   # Cache images locally for faster startup
-  docker pull hashicorp/consul-k8s:0.9.2 
-  docker pull consul:1.6.1 
-  docker pull envoyproxy/envoy-alpine:v1.10.0
-  docker pull kubernetesui/dashboard:v2.0.0-beta4
-  docker pull kubernetesui/metrics-scraper:v1.0.1
-  
+  for i in "${DOCKER_IMAGES[@]}"
+  do
+    docker pull $i || true # ignore errors in case no internet
+  done
+ 
+  # Import images from the local Docker instance to K8s
   k3d import-images -n $CLUSTER_NAME \
-    consul:1.6.1 \
-    envoyproxy/envoy-alpine:v1.10.0 \
-    hashicorp/consul-k8s:0.9.2 \
-    kubernetesui/dashboard:v2.0.0-beta4 \
-    kubernetesui/metrics-scraper:v1.0.1
+    ${DOCKER_IMAGES[*]}
   
   # Export KubeConfig
   mkdir -p /root/.config/k3d/$CLUSTER_NAME/
@@ -363,10 +368,14 @@ function install_core() {
 
 	echo "#### Install local storage controller for Kubernetes"
   echo ""
-	
-  # Add storage
-  kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/master/deploy/local-path-storage.yaml
-	kubectl get storageclass
+}
+
+function install_k8s() {
+  echo "#### Install K8s Config"
+  echo ""
+
+  # Install the CRDs for the controller
+  kubectl apply -f ./config/k8s_config
 }
 
 function install_consul() {
@@ -394,13 +403,6 @@ function install_consul() {
   # kubectl get secret consul-consul-bootstrap-acl-token -o json | jq -r .data.token > consul_acl.token 
 }
 
-function install_k8s() {
-  echo "#### Install K8s Config"
-  echo ""
-
-  # Install the CRDs for the controller
-  kubectl apply -f ./config/k8s_config
-}
 
 function uninstall() {
   echo "### Uninstalling yard"
@@ -459,6 +461,7 @@ case "$1" in
     CONSUL_VALUES="$CONFIG/config/helm-charts/consul-values.yaml"
     NETWORK="null"
     NETWORK_IP="auto"
+    DOCKER_IMAGES=()
 
     while [[ $# -gt 0 ]]
     do
@@ -498,7 +501,12 @@ case "$1" in
           shift # past argument
           shift # past value
           ;;    
-        *)    # unknown option
+          --push-image)
+          DOCKER_IMAGES+=("$2")
+          shift # past argument
+          shift # past value
+          ;;    
+          *)    # unknown option
           shift # past argument
           ;;
       esac
@@ -508,7 +516,7 @@ case "$1" in
     check_latest;
     echo "## Creating K8s cluster in Docker and installing Consul"
     echo ""
-    up $TYPE $NAME $CONSUL_PORT $DASHBOARD_PORT $CONSUL_VALUES $NETWORK $NETWORK_IP;
+    up $TYPE $NAME $CONSUL_PORT $DASHBOARD_PORT $CONSUL_VALUES $NETWORK $NETWORK_IP ${DOCKER_IMAGES[@]};
     ;;
   "down")
     NAME="shipyard"
@@ -521,7 +529,7 @@ case "$1" in
           shift # past argument
           shift # past value
           ;;
-        *)    # unknown option
+          *)    # unknown option
           shift # past argument
           ;;
       esac
@@ -579,7 +587,7 @@ case "$1" in
           shift # past argument
           shift # past value
           ;;    
-        *)    # unknown option
+          *)    # unknown option
           shift # past argument
           ;;
       esac
@@ -618,8 +626,8 @@ case "$1" in
           shift # past value
           ;;
           *)
-            shift
-            ;;
+          shift
+          ;;
       esac
     done
 
@@ -653,8 +661,8 @@ case "$1" in
           shift # past value
           ;;
           *)
-            shift
-            ;;
+          shift
+          ;;
       esac
     done
 
@@ -692,8 +700,8 @@ case "$1" in
           shift # past value
           ;;
           *)
-            shift
-            ;;
+          shift
+          ;;
       esac
     done
 
@@ -711,18 +719,19 @@ case "$1" in
     DASHBOARD_PORT=$5
     NETWORK=$6
     NETWORK_IP=$7
+    DOCKER_IMAGES=${@:8}
 
     export KUBECONFIG="$(pwd)/$NAME/kubeconfig.yml"
     
     if [[ $TYPE == "k8s" ]]; then
-      install_cluster $NAME $CONSUL_PORT $DASHBOARD_PORT $NETWORK $NETWORK_IP;
+      install_cluster $NAME $CONSUL_PORT $DASHBOARD_PORT $NETWORK $NETWORK_IP ${DOCKER_IMAGES[@]};
     else
-      install_cluster_k3s $NAME $CONSUL_PORT $DASHBOARD_PORT $NETWORK $NETWORK_IP;
+      install_cluster_k3s $NAME $CONSUL_PORT $DASHBOARD_PORT $NETWORK $NETWORK_IP ${DOCKER_IMAGES[@]}
     fi
 
     install_core;
-    install_consul;
     install_k8s;
+    install_consul;
 
     echo "";
     echo "### Setup complete:";
@@ -761,6 +770,8 @@ case "$1" in
     echo "         --name (default shipyard): name for the cluster"
     echo "         --network: attach cluster to an additional docker network"
     echo "         --network-ip (default allocated by Docker): ip in the docker network to allocate"
+    echo "         --push-image: Docker image from local Docker to push to Kubernetes worker cache"
+    echo "                       Can be specified multiple times."
     echo "  down - Stop K8s server"
     echo "         options: "
     echo "           --name (default shipyard): name for the cluster"

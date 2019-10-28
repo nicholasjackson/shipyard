@@ -14,7 +14,7 @@
 # You can create any custom variable you would like, and they will be accessible
 # in the templates via {{ site.myvariable }}.
 theme: just-the-docs
-remote_theme: pmarsceill/just-the-docs
+remote_theme: pmarsceill/just-the-docs@2.7.1
 color_scheme: "dark"
 heading_anchors: true
 
