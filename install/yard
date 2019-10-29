@@ -1,5 +1,5 @@
 #!/bin/bash -e
-VERSION=0.1.19
+VERSION=0.1.18
 
 CONFIG=$HOME/.shipyard
 
@@ -311,9 +311,11 @@ function install_cluster_k3s() {
     --publish $DASHBOARD_PORT:30444 \
     --wait 60 \
     --api-port $API_SERVER_PORT \
-    --image rancher/k3s:v0.9.1
+    --image rancher/k3s:v0.9.1 \
+    --server-arg "--no-deploy=traefik"
 
   # add the default images to the list of custom images
+
   DOCKER_IMAGES+=("k8s.gcr.io/pause:3.1")
   DOCKER_IMAGES+=("coredns/coredns:1.6.3")
   DOCKER_IMAGES+=("busybox:latest")
@@ -338,6 +340,7 @@ function install_cluster_k3s() {
   # Export KubeConfig
   mkdir -p /root/.config/k3d/$CLUSTER_NAME/
   mkdir -p ./$CLUSTER_NAME
+  
   k3d get-kubeconfig -n $CLUSTER_NAME
   mv /root/.config/k3d/$CLUSTER_NAME/kubeconfig.yaml ./$CLUSTER_NAME/kubeconfig.yml
 
