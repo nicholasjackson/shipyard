@@ -314,12 +314,16 @@ function install_cluster_k3s() {
     --image rancher/k3s:v0.9.1
 
   # add the default images to the list of custom images
-  DOCKER_IMAGES+=("hashicorp/consul-k8s:0.9.2")
-  DOCKER_IMAGES+=("consul:1.6.1")
-  DOCKER_IMAGES+=("envoyproxy/envoy-alpine:v1.10.0")
+  DOCKER_IMAGES+=("k8s.gcr.io/pause:3.1")
+  DOCKER_IMAGES+=("coredns/coredns:1.6.3")
+  DOCKER_IMAGES+=("busybox:latest")
   DOCKER_IMAGES+=("kubernetesui/dashboard:v2.0.0-beta4")
   DOCKER_IMAGES+=("kubernetesui/metrics-scraper:v1.0.1")
   DOCKER_IMAGES+=("rancher/local-path-provisioner:v0.0.11")
+
+  DOCKER_IMAGES+=("hashicorp/consul-k8s:0.9.2")
+  DOCKER_IMAGES+=("consul:1.6.1")
+  DOCKER_IMAGES+=("envoyproxy/envoy-alpine:v1.10.0")
 
   # Cache images locally for faster startup
   for i in "${DOCKER_IMAGES[@]}"
@@ -415,20 +419,22 @@ function uninstall() {
 
 
 function check_latest() {
-  curl -s "https://shipyard.demo.gs/latest_version.html" > $CONFIG/latest
+  curl -s "https://shipyard.demo.gs/latest_version.html" > $CONFIG/latest || true
 
-  if [ $(cat $CONFIG/latest) != "$VERSION" ];then
-    echo "##############################################################"
-    echo ""
-    echo "Shipyard needs to be updated!"
-    echo ""
-    echo "You are using version: $VERSION"
-    echo "Latest version: $(cat $HOME/.shipyard/latest)"
-    echo ""
-    echo "run \"yard upgrade\" to update to the latest version"
-    echo ""
-    echo "##############################################################"
-    echo ""
+  if [[ "$(cat $CONFIG/latest)" != "" ]];then
+    if [[ "$(cat $CONFIG/latest)" != "$VERSION" ]];then
+      echo "##############################################################"
+      echo ""
+      echo "Shipyard needs to be updated!"
+      echo ""
+      echo "You are using version: $VERSION"
+      echo "Latest version: $(cat $HOME/.shipyard/latest)"
+      echo ""
+      echo "run \"yard upgrade\" to update to the latest version"
+      echo ""
+      echo "##############################################################"
+      echo ""
+    fi
   fi
 }
 
