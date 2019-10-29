@@ -750,7 +750,7 @@ case "$1" in
     echo "Kubernetes dashboard can be accessed at: http://localhost:$DASHBOARD_PORT";
     echo "";
     echo "To expose Kubernetes pods or services use the 'yard expose' command. e.g."
-    echo "yard expose svc/myservice 8080 8080"
+    echo "yard expose --service-name svc/myservice --port 8080:8080"
     echo ""
     echo "When finished use \"yard down\" to cleanup and remove resources";
     ;;
