@@ -1,5 +1,5 @@
 #!/bin/bash
-VERSION=0.1.18
+VERSION=0.1.19
 
 echo "## Installing Shipyard Version: $VERSION" 
 echo ""

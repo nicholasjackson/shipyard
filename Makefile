@@ -1,4 +1,4 @@
-VERSION=0.1.18
+VERSION=0.1.19
 IMAGE_TOOLS=nicholasjackson/consul-k8s-tools
 IMAGE_VSCODE=nicholasjackson/code-server
 
