@@ -1,5 +1,5 @@
 #!/bin/bash -e
-VERSION=0.2.1
+VERSION=0.2.0
 
 CONFIG=$HOME/.shipyard
 
@@ -675,8 +675,6 @@ case "$1" in
       esac
     done
 
-    logo;
-    check_latest;
     echo "## Running command $COMMAND on cluster $NAME";
     echo "";
     tools $NAME $FOLDER $COMMAND;
