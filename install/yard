@@ -1,5 +1,5 @@
 #!/bin/bash -e
-VERSION=0.2.3
+VERSION=0.2.2
 
 CONFIG=$HOME/.shipyard
 
@@ -73,7 +73,7 @@ function expose_port() {
     LINKS="--network k3d-$NAME"
   fi
 
-  COMMAND="sleep 5 &&"
+  COMMAND="kubectl get svc; kubectl get pods; "
   PORTS=""
   for port in ${SERVICE_PORT[@]}; do
     # Split each pair
