@@ -73,7 +73,7 @@ function expose_port() {
     LINKS="--network k3d-$NAME"
   fi
 
-  COMMAND=""
+  COMMAND="sleep 5 &&"
   PORTS=""
   for port in ${SERVICE_PORT[@]}; do
     # Split each pair
