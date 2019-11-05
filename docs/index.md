@@ -7,7 +7,7 @@ nav_order: 1
 # Shipyard 
 {: .fs-10}
 
-VERSION=1.6.1
+**VERSION=0.2.5**
 
 Shipyard allows you to create Kubernetes and Consul service mesh clusters running locally with Docker.
 {: .fs-6}

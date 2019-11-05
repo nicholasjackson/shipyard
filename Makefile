@@ -32,7 +32,7 @@ update_version:
 	sed -i.bak 's/^VERSION=.*/VERSION=$(version)/' ./install/yard
 	rm ./install/yard.bak
 	
-	sed -i.bak 's/^\*\*VERSION=.*/\*\*VERSION=$(version)\*\*/' ./docs/index.md
+	sed -i.bak 's/^VERSION=.*/\*\*VERSION=$(version)\*\*/' ./docs/index.md
 	rm ./docs/index.md.bak
 
 update_version_number_and_push: 
