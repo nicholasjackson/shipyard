@@ -52,11 +52,17 @@ function down() {
 function expose_port() {
   local NAME=$1
   local SERVICE_NAME=$2
-  local EXPOSE_MD5=$(echo -n "$@" | md5sum | awk '{print $1}')
   local NETWORK_NAME=$3
   local NETWORK_IP=$4
   local BIND_IP=$5
   local SERVICE_PORT=($@)
+
+  
+  if [ $(uname -s) == "Darwin" ]; then
+    local EXPOSE_MD5=$(echo -n "$@" | md5 | awk '{print $1}')
+  else
+    local EXPOSE_MD5=$(echo -n "$@" | md5sum | awk '{print $1}')
+  fi
 
   # Remove the other parameters
   unset 'SERVICE_PORT[0]'
