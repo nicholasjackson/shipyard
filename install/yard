@@ -229,6 +229,12 @@ function push_image() {
   local IMAGE=$1
   local NAME=$2
 
+  if [ $(cat $CONFIG/$NAME/state) == "k3s" ]; then
+    local COMMAND="k3d import-images --name $NAME $IMAGE"
+  else
+    local COMMAND="kind load docker-image --name $NAME $IMAGE"
+  fi
+
   docker run \
     --rm \
     --network host \
@@ -236,7 +242,7 @@ function push_image() {
     -v "/var/run/docker.sock:/var/run/docker.sock" \
     -v "$CONFIG:/files" \
     -w "/files" nicholasjackson/consul-k8s-tools:$VERSION \
-    bash -c "k3d import-images --name $NAME $IMAGE"
+    bash -c "$COMMAND"
 }
 
 function destroy() {
@@ -257,6 +263,7 @@ function install_cluster() {
   local DASHBOARD_PORT=$3 
   local NETWORK_NAME=$4
   local NETWORK_IP=$5
+  local DOCKER_IMAGES=(${@:6})
 
 	echo "#### Create Kubernetes cluster in Docker"
   echo ""
@@ -296,6 +303,31 @@ EOF
   
   # write to the state file
   echo "k8s" > ./$CLUSTER_NAME/state
+
+  # add the default images to the list of custom images
+  DOCKER_IMAGES+=("k8s.gcr.io/pause:3.1")
+  DOCKER_IMAGES+=("coredns/coredns:1.6.3")
+  DOCKER_IMAGES+=("busybox:latest")
+  DOCKER_IMAGES+=("kubernetesui/dashboard:v2.0.0-beta4")
+  DOCKER_IMAGES+=("kubernetesui/metrics-scraper:v1.0.1")
+  DOCKER_IMAGES+=("rancher/local-path-provisioner:v0.0.11")
+
+  DOCKER_IMAGES+=("hashicorp/consul-k8s:0.9.2")
+  DOCKER_IMAGES+=("consul:1.6.1")
+  DOCKER_IMAGES+=("envoyproxy/envoy-alpine:v1.10.0")
+
+  # Cache images locally for faster startup
+  for i in "${DOCKER_IMAGES[@]}"
+  do
+    docker pull $i || true # ignore errors in case no internet
+  done
+
+  # Import the images to the server
+  for i in "${DOCKER_IMAGES[@]}"
+  do
+    echo "kind load docker-image --name $CLUSTER_NAME $i"
+    kind load docker-image --name $CLUSTER_NAME $i
+  done
  
   # are we using a custom ip for the docker network
   if [[ "$NETWORK_IP" != "auto" ]]; then
@@ -335,7 +367,6 @@ function install_cluster_k3s() {
     --server-arg "--no-deploy=traefik"
 
   # add the default images to the list of custom images
-
   DOCKER_IMAGES+=("k8s.gcr.io/pause:3.1")
   DOCKER_IMAGES+=("coredns/coredns:1.6.3")
   DOCKER_IMAGES+=("busybox:latest")
