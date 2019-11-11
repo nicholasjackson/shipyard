@@ -49,3 +49,7 @@ RUN curl -sL https://releases.hashicorp.com/consul/1.6.1/consul_1.6.1_linux_amd6
     unzip consul.zip && \
     mv consul /usr/local/bin && \
     rm consul.zip
+
+# Install Squash
+RUN curl -sL https://github.com/solo-io/squash/releases/download/v0.5.18/squashctl-linux -o squashctl && \
+    mv squashctl /usr/local/bin
