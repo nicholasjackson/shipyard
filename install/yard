@@ -225,6 +225,20 @@ function vs_code() {
   xdg-open "http://127.0.0.1:8080/?folder=/home/coder/project"
 }
 
+function push_image() {
+  local IMAGE=$1
+  local NAME=$2
+
+  docker run \
+    --rm \
+    --network host \
+    -it \
+    -v "/var/run/docker.sock:/var/run/docker.sock" \
+    -v "$CONFIG:/files" \
+    -w "/files" nicholasjackson/consul-k8s-tools:$VERSION \
+    bash -c "k3d import-images --name $NAME $IMAGE"
+}
+
 function destroy() {
   local CLUSTER_NAME=$1
 
@@ -685,6 +699,32 @@ case "$1" in
     echo "";
     tools $NAME $FOLDER $COMMAND;
     ;;
+  "push")
+    IMAGE=""
+    NAME="shipyard"
+    
+    while [[ $# -gt 0 ]]
+    do
+      case $1 in
+          --name)
+          NAME="$2"
+          shift # past argument
+          shift # past value
+          ;;
+          --image)
+          IMAGE="$2"
+          shift # past argument
+          shift # past value
+          ;;
+          *)
+          shift
+          ;;
+      esac
+    done
+
+    echo "## Pushing image ${IMAGE} to cluster $NAME";
+    push_image $IMAGE $NAME
+    ;;
   "upgrade")
     logo;
     echo "Upgrading to latest version";
@@ -811,6 +851,10 @@ case "$1" in
     echo "         -- command to execute "
     echo "        e.g. to apply a local Kubernetes config file:"
     echo "            \"yard tools --folder \$PWD -- kubectl apply -f /work/myfile.yml\""
+    echo "  push - Push a local Docker image to the cluster"
+    echo "       options: "
+    echo "         --image: name of the local Docker image to push"
+    echo "         --name (default shipyard): name of the cluster"
     echo "  upgrade - Upgrade yard to latest version"
     echo "  uninstall - Remove yard from this machine"
     echo "  vscode - Run VS Code in a browser"
