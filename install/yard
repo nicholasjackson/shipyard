@@ -203,14 +203,22 @@ function vs_code() {
     LINKS="--network k3d-$NAME"
     CONSUL_ENV="-e CONSUL_HTTP_ADDR=http://k3d-$NAME-server:30443"
   fi
-
+  
+  # Here be dragons, this seems to work, but 
+  # appologies for anyone debugging this
+  # hacks on hacks to allow shipyard to work from inside vscode
   docker run --rm -it -d \
     -p 127.0.0.1:8080:8080 \
     -v "$FOLDER:/home/coder/project" \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$CONFIG:/files" \
+    -v "$HOME/.shipyard:/root/.shipyard" \
+    -v "$HOME/.shipyard:$HOME/.shipyard" \
+    -v "$HOME/.shipyard/yard:/usr/local/bin/yard" \
     --name vscode \
+    --privileged \
     -e "KUBECONFIG=/files/$NAME/kubeconfig-docker.yml" \
+    -e "CONFIG_TMP=$HOME/.shipyard" \
     $CONSUL_ENV \
     $LINKS \
     nicholasjackson/code-server:$VERSION
@@ -231,6 +239,8 @@ function push_image() {
 
   if [ $(cat $CONFIG/$NAME/state) == "k3s" ]; then
     local COMMAND="k3d import-images --name $NAME $IMAGE"
+
+  k3d import-images -n $CLUSTER_NAME \
   else
     local COMMAND="kind load docker-image --name $NAME $IMAGE"
   fi
