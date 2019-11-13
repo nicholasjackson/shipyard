@@ -889,11 +889,12 @@ case "$1" in
           logo;
           check_latest;
 
-          echo "vscode - Run VS Code in a browser"
+          echo "vscode - Run Visual Studio Code in a browser"
           echo ""
           echo "Options: "
-          echo "  --name=shipyard:         Name of the cluster"
-          echo "  --folder=current folder: Working folder to map to /home/coder/project"
+          echo "  --name=shipyard:                                             Name of the cluster"
+          echo "  --folder=current folder:                                     Working folder to map to /home/coder/project"
+          echo "  --settings-file=\$HOME/.shipyard/config/vscode_settings.json: VSCode settings file"
           exit 1
           ;;
           *)
@@ -963,7 +964,7 @@ case "$1" in
     echo "  expose    - expose a kubernetes pod or service locally"
     echo "  tools     - Interactive shell with Consul CLI, kubectl, helm, etc."
     echo "  push      - Push a local Docker image to the cluster"
-    echo "  vscode    - Run VS Code in a browser"
+    echo "  vscode    - Run Visual Studio Code in a browser"
     echo "  upgrade   - Upgrade yard to latest version"
     echo "  uninstall - Remove yard from this machine"
     echo ""
