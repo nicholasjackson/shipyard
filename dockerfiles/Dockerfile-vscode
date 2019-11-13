@@ -12,8 +12,8 @@ RUN curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key
 # Install Helm
 RUN curl -sL https://get.helm.sh/helm-v3.0.0-beta.4-linux-amd64.tar.gz -o ./helm.tar.gz && \
     tar -xzf ./helm.tar.gz && \
-    mv ./linux-amd64/helm /usr/local/bin && \
-    rm ./helm.tar.gz
+    sudo mv ./linux-amd64/helm /usr/local/bin && \
+    sudo rm ./helm.tar.gz
 
 # Install Docker CLI
 RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add - && \
