@@ -608,7 +608,7 @@ case "$1" in
     echo "## Stopping Kubernetes and cleaning resources"
     
     # get active type from state
-    if [ $(cat $CONFIG/$NAME/state) == "k3s" ]; then
+    if [ $(cat $CONFIG/yards/$NAME/state) == "k3s" ]; then
       down "k3s" $NAME;
     else
       down "k8s" $NAME;
