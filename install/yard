@@ -187,6 +187,7 @@ function tools() {
 function vs_code() {
   local NAME=$1
   local FOLDER=$2
+  local SETTINGS=$3
 
   echo "Starting VS Code"
   echo ""
@@ -215,6 +216,8 @@ function vs_code() {
     -v "$HOME/.shipyard:/root/.shipyard" \
     -v "$HOME/.shipyard:$HOME/.shipyard" \
     -v "$HOME/.shipyard/yard:/usr/local/bin/yard" \
+    -v "$SETTINGS:/root/.local/share/code-server/User/settings.json" \
+    -v "$SETTINGS:/home/coder/.local/share/code-server/User/settings.json" \
     --name vscode \
     --privileged \
     -e "KUBECONFIG=/files/yards/$NAME/kubeconfig-docker.yml" \
@@ -871,12 +874,18 @@ case "$1" in
   "vscode")
     NAME="shipyard"
     FOLDER=$(pwd)
+    SETTINGS=$CONFIG/config/vscode_settings.json
 
     while [[ $# -gt 0 ]]
     do
       case $1 in
           --name)
           NAME="$2"
+          shift # past argument
+          shift # past value
+          ;;
+          --settings)
+          SETTINGS="$2"
           shift # past argument
           shift # past value
           ;;
@@ -905,7 +914,7 @@ case "$1" in
 
     logo;
     echo "## Starting VSCode in a browser"
-    vs_code $NAME $FOLDER;
+    vs_code $NAME $FOLDER $SETTINGS;
     ;;
   "create")
     echo "### Creating Kubernetes cluster, this process will take approximately 2 minutes";
