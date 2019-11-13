@@ -1,7 +1,7 @@
 FROM codercom/code-server:latest
 
 RUN sudo apt-get update && sudo apt-get install -y curl apt-transport-https ca-certificates software-properties-common gnupg-agent vim zip jq iputils-ping \
-      net-tools
+      net-tools bsdtar
 
 # Install Kubectl
 RUN curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add - && \
@@ -82,8 +82,19 @@ RUN sudo ln -s /home/coder/.local/share/code-server/extensions/wholroyd.hcl-0.0.
       cd /home/coder/.local/share/code-server/extensions/wholroyd.hcl-0.0.4 && \
       npm i
 
+# Install Squash Debugger from the official repo and build
+RUN curl -JL  https://marketplace.visualstudio.com/_apis/public/gallery/publishers/ilevine/vsextensions/squash/0.5.18/vspackage | bsdtar -xvf - extension && \
+      mv ./extension /home/coder/.local/share/code-server/extensions/ilevine.squash-0.5.18 && \
+      sudo ln -s /home/coder/.local/share/code-server/extensions/ilevine.squash-0.5.18/ /root/.local/share/code-server/extensions && \
+      cd /home/coder/.local/share/code-server/extensions/ilevine.squash-0.5.18 && \
+      npm i
+
 # Set the shell to bash
 ENV SHELL=/bin/bash
+
+# Add the default settings
+COPY ./vscode_settings.json /root/.local/share/code-server/User/settings.json
+COPY ./vscode_settings.json /home/coder/.local/share/code-server/User/settings.json
 
 # Make the default user admin
 USER root

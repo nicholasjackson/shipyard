@@ -1,5 +1,5 @@
 #!/bin/bash -e
-VERSION=0.2.8
+VERSION=0.2.7
 
 CONFIG=$HOME/.shipyard
 
@@ -75,7 +75,7 @@ function expose_port() {
          --link $NAME-worker"
 
   # read from state to determine server type
-  if [ $(cat $CONFIG/$NAME/state) == "k3s" ]; then
+  if [ $(cat $CONFIG/yards/$NAME/state) == "k3s" ]; then
     LINKS="--network k3d-$NAME"
   fi
 
@@ -98,7 +98,7 @@ function expose_port() {
     --name yard-$NAME-$EXPOSE_MD5\
     $PORTS \
     -v $CONFIG:/files $FOLDER \
-    -e "KUBECONFIG=/files/$NAME/kubeconfig-docker.yml" \
+    -e "KUBECONFIG=/files/yards/$NAME/kubeconfig-docker.yml" \
     $LINKS \
     nicholasjackson/consul-k8s-tools:$VERSION \
     bash -c "$COMMAND"
@@ -140,7 +140,7 @@ function tools() {
     CONSUL_ENV="-e CONSUL_HTTP_ADDR=http://$NAME-worker:30443"
 
     # read from state to determine server type
-    if [ $(cat $CONFIG/$NAME/state) == "k3s" ]; then
+    if [ $(cat $CONFIG/yards/$NAME/state) == "k3s" ]; then
       LINKS="--network k3d-$NAME"
       CONSUL_ENV="-e CONSUL_HTTP_ADDR=http://k3d-$NAME-server:30443"
     fi
@@ -161,7 +161,7 @@ function tools() {
       -v $CONFIG:/files \
       -v $FOLDER:/work \
       -w /work \
-      -e "KUBECONFIG=/files/$NAME/kubeconfig-docker.yml" \
+      -e "KUBECONFIG=/files/yards/$NAME/kubeconfig-docker.yml" \
       $CONSUL_ENV \
       $LINKS \
       nicholasjackson/consul-k8s-tools:$VERSION $COMMAND
@@ -180,7 +180,7 @@ function tools() {
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v $CONFIG:/files \
     -v $FOLDER:/work \
-    -e "KUBECONFIG=/files/$NAME/kubeconfig.yml" \
+    -e "KUBECONFIG=/files/yards/$NAME/kubeconfig.yml" \
     nicholasjackson/consul-k8s-tools:$VERSION $COMMAND
 }
 
@@ -199,7 +199,7 @@ function vs_code() {
   CONSUL_ENV="-e CONSUL_HTTP_ADDR=http://$NAME-worker:30443"
 
   # read from state to determine server type
-  if [ $(cat $CONFIG/$NAME/state) == "k3s" ]; then
+  if [ $(cat $CONFIG/yards/$NAME/state) == "k3s" ]; then
     LINKS="--network k3d-$NAME"
     CONSUL_ENV="-e CONSUL_HTTP_ADDR=http://k3d-$NAME-server:30443"
   fi
@@ -217,7 +217,7 @@ function vs_code() {
     -v "$HOME/.shipyard/yard:/usr/local/bin/yard" \
     --name vscode \
     --privileged \
-    -e "KUBECONFIG=/files/$NAME/kubeconfig-docker.yml" \
+    -e "KUBECONFIG=/files/yards/$NAME/kubeconfig-docker.yml" \
     -e "CONFIG_TMP=$HOME/.shipyard" \
     $CONSUL_ENV \
     $LINKS \
@@ -237,10 +237,8 @@ function push_image() {
   local IMAGE=$1
   local NAME=$2
 
-  if [ $(cat $CONFIG/$NAME/state) == "k3s" ]; then
+  if [ $(cat $CONFIG/yards/$NAME/state) == "k3s" ]; then
     local COMMAND="k3d import-images --name $NAME $IMAGE"
-
-  k3d import-images -n $CLUSTER_NAME \
   else
     local COMMAND="kind load docker-image --name $NAME $IMAGE"
   fi
@@ -302,17 +300,17 @@ EOF
 
 	kind create cluster --config /tmp/${CLUSTER_NAME}_config.yml --name $CLUSTER_NAME
 
-  mkdir -p ./$CLUSTER_NAME
+  mkdir -p ./yards/$CLUSTER_NAME
 
   # Export KubeConfig
-  cat $(kind get kubeconfig-path --name $CLUSTER_NAME) > ./$CLUSTER_NAME/kubeconfig.yml
+  cat $(kind get kubeconfig-path --name $CLUSTER_NAME) > ./yards/$CLUSTER_NAME/kubeconfig.yml
  
   # Create a docker version of the config which replaces the address with the 
   # name of the container
-  sed "s/127.0.0.1:[0-9]*/$CLUSTER_NAME-control-plane:6443/" ./$CLUSTER_NAME/kubeconfig.yml > ./$CLUSTER_NAME/kubeconfig-docker.yml
+  sed "s/127.0.0.1:[0-9]*/$CLUSTER_NAME-control-plane:6443/" ./yards/$CLUSTER_NAME/kubeconfig.yml > ./yards/$CLUSTER_NAME/kubeconfig-docker.yml
   
   # write to the state file
-  echo "k8s" > ./$CLUSTER_NAME/state
+  echo "k8s" > ./yards/$CLUSTER_NAME/state
 
   # add the default images to the list of custom images
   DOCKER_IMAGES+=("k8s.gcr.io/pause:3.1")
@@ -400,17 +398,17 @@ function install_cluster_k3s() {
   
   # Export KubeConfig
   mkdir -p /root/.config/k3d/$CLUSTER_NAME/
-  mkdir -p ./$CLUSTER_NAME
+  mkdir -p ./yards/$CLUSTER_NAME
   
   k3d get-kubeconfig -n $CLUSTER_NAME
-  mv /root/.config/k3d/$CLUSTER_NAME/kubeconfig.yaml ./$CLUSTER_NAME/kubeconfig.yml
+  mv /root/.config/k3d/$CLUSTER_NAME/kubeconfig.yaml ./yards/$CLUSTER_NAME/kubeconfig.yml
 
   # Create a docker version of the config which replaces the address with the 
   # name of the container
-  sed "s/127.0.0.1:[0-9]*/k3d-$CLUSTER_NAME-server:$API_SERVER_PORT/" ./$CLUSTER_NAME/kubeconfig.yml > ./$CLUSTER_NAME/kubeconfig-docker.yml
+  sed "s/127.0.0.1:[0-9]*/k3d-$CLUSTER_NAME-server:$API_SERVER_PORT/" ./yards/$CLUSTER_NAME/kubeconfig.yml > ./yards/$CLUSTER_NAME/kubeconfig-docker.yml
   
   # write to the state file
-  echo "k3s" > ./$CLUSTER_NAME/state
+  echo "k3s" > ./yards/$CLUSTER_NAME/state
   
   # are we using a custom ip for the docker network
   if [[ "$NETWORK_IP" != "auto" ]]; then
@@ -669,7 +667,7 @@ case "$1" in
     fi
     
     if [[ "${#SERVICE_PORT[@]}" == "0" ]]; then
-      echo "Flag --service-name is required"
+      echo "Flag --port [local:remote] is required"
       exit 1
     fi
 
@@ -815,7 +813,7 @@ case "$1" in
     NETWORK_IP=$7
     DOCKER_IMAGES=${@:8}
 
-    export KUBECONFIG="$(pwd)/$NAME/kubeconfig.yml"
+    export KUBECONFIG="$(pwd)/yards/$NAME/kubeconfig.yml"
     
     if [[ $TYPE == "k8s" ]]; then
       install_cluster $NAME $CONSUL_PORT $DASHBOARD_PORT $NETWORK $NETWORK_IP ${DOCKER_IMAGES[@]};
@@ -831,7 +829,7 @@ case "$1" in
     echo "### Setup complete:";
     echo "";
     echo "To interact with Kubernetes set your KUBECONFIG environment variable";
-    echo "export KUBECONFIG=\"\$HOME/.shipyard/$NAME/kubeconfig.yml\"";
+    echo "export KUBECONFIG=\"\$HOME/.shipyard/yards/$NAME/kubeconfig.yml\"";
     echo "";
     echo "Consul can be accessed at: http://localhost:$CONSUL_PORT";
     echo "Kubernetes dashboard can be accessed at: http://localhost:$DASHBOARD_PORT";
