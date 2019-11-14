@@ -54,3 +54,13 @@ RUN curl -sL https://releases.hashicorp.com/consul/1.6.1/consul_1.6.1_linux_amd6
 RUN curl -sL https://github.com/solo-io/squash/releases/download/v0.5.18/squashctl-linux -o squashctl && \
     mv squashctl /usr/local/bin && \
     chmod +x /usr/local/bin/squashctl
+
+# Install Gloo CLI
+RUN curl -sL https://github.com/solo-io/gloo/releases/download/v0.20.8/glooctl-linux-amd64 -o glooctl && \
+    mv glooctl /usr/local/bin && \
+    chmod +x /usr/local/bin/glooctl
+
+# Install preview of Loop CLI
+RUN curl -sL https://github.com/solo-io/demos-gloo/releases/download/0.0.1/loopctl-linux-amd64 -o  loopctl && \
+    mv loopctl /usr/local/bin && \
+    chmod +x /usr/local/bin/loopctl    
