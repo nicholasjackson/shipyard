@@ -55,6 +55,7 @@ function expose_port() {
   local NETWORK_NAME=$3
   local NETWORK_IP=$4
   local BIND_IP=$5
+  local NAMESPACE=$6
   local SERVICE_PORT=($@)
 
   
@@ -70,6 +71,7 @@ function expose_port() {
   unset 'SERVICE_PORT[2]'
   unset 'SERVICE_PORT[3]'
   unset 'SERVICE_PORT[4]'
+  unset 'SERVICE_PORT[5]'
 
   LINKS="--link $NAME-control-plane \
          --link $NAME-worker"
@@ -81,10 +83,11 @@ function expose_port() {
 
   COMMAND="kubectl get svc; kubectl get pods; "
   PORTS=""
+
   for port in ${SERVICE_PORT[@]}; do
     # Split each pair
     IFS=':' read -r -a PARTS <<< "$port"
-    COMMAND+="kubectl port-forward --address 0.0.0.0 $SERVICE_NAME ${PARTS[0]}:${PARTS[1]} & "
+    COMMAND+="kubectl port-forward --address 0.0.0.0 -n $NAMESPACE $SERVICE_NAME ${PARTS[0]}:${PARTS[1]} & "
 
     if [[ "$BIND_IP" != "none" ]]; then
       PORTS+=" -p $BIND_IP:${PARTS[0]}:${PARTS[0]}"
@@ -652,6 +655,7 @@ case "$1" in
     NETWORK_IP="auto"
     BIND_IP="0.0.0.0"
     NAME="shipyard"
+    NAMESPACE="default"
 
     while [[ $# -gt 0 ]]
     do
@@ -671,6 +675,11 @@ case "$1" in
           shift # past argument
           shift # past value
           ;;
+          --namespace)
+          NAMESPACE="$2"
+          shift # past argument
+          shift # past value
+          ;;    
           --bind-ip)
           BIND_IP="$2"
           shift # past argument
@@ -696,6 +705,7 @@ case "$1" in
           echo "  --service-name:             Name of the pod or service"
           echo "  --port:                     Local and service ports to expose e.g. 8500:8500," 
           echo "                              can be specified multiple times." 
+          echo "  --namespace:                Kubernetes namespace containing the pod or service" 
           echo "  --bind-ip=0.0.0.0:          IP address to bind to,"
           echo "                              use value \"none\" disable host binding"
           echo "  --network=null:             Name of the Docker network to connect the port to"
@@ -729,7 +739,7 @@ case "$1" in
     logo;
     check_latest;
     echo "## Expose service: $SERVICE_NAME ports: ${SERVICE_PORT[@]} using network $NETWORK"
-    expose_port $NAME $SERVICE_NAME $NETWORK $NETWORK_IP $BIND_IP ${SERVICE_PORT[@]}
+    expose_port $NAME $SERVICE_NAME $NETWORK $NETWORK_IP $BIND_IP $NAMESPACE ${SERVICE_PORT[@]}
     ;;
   "tools")
     NAME="shipyard"
