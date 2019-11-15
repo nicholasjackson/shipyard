@@ -18,6 +18,7 @@ ENV EXT_NORD_VERSION=0.12.0
 USER root
 
 # Add the dependencies for code-server
+RUN apt-get install -y bsdtar
 
 # Install Go and packages for VSCode
 RUN curl -sL https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz -o /tmp/go${GO_VERSION}.tar.gz && \
