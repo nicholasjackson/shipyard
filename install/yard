@@ -604,7 +604,7 @@ function init() {
     fi
   done
 
-  # If vscode image installed update otherwise ignore
+  # If VSCode image installed update otherwise ignore
   local ALL=$(docker images --filter "reference=nicholasjackson/code-server:*" --format "{{.Repository}}:{{.Tag}}")
   if [[ "$ALL" != "" ]]; then
     # Get the latest vscode
