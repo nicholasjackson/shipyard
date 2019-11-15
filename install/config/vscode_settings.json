@@ -3,5 +3,75 @@
     "go.formatTool": "goimports",
     "go.useLanguageServer": true,
     "squash.path": "/usr/local/bin/squashctl",
-    "squash.remotePath": ""
+    "squash.remotePath": "",
+    "workbench.colorTheme": "Nord",
+    "workbench.colorCustomizations": {
+        "[Tomorrow Night]": {
+            "terminal.background": "#000000",
+            "editor.background": "#202831",
+            "sideBar.background": "#2a3541"
+        }
+    },
+    "editor.tokenColorCustomizations": {
+        "[Nord]": {
+            "functions": "#B3BAC6",
+            "types": "#B3BAC6",
+            "keywords": "#99daff",
+            "variables": "#B3BAC6",
+            "strings": "#d1c96b",
+            "comments": "#506379",
+            "textMateRules": [
+                {
+                    "scope": "variable.parameter",
+                    "settings": {
+                        "foreground": "#B3BAC6"
+                    }
+                },
+                {
+                    "scope": "entity.name.type",
+                    "settings": {
+                        "foreground": "#e5e5e5",
+                    }
+                },
+                {
+                    "scope": [
+                        "keyword.operator",
+                        "punctuation.other.period",
+                    ],
+                    "settings": {
+                        "foreground": "#c64f85",
+                    }
+                },
+                {
+                    "scope": [
+                        "punctuation.definition.string.end",
+                        "punctuation.definition.string.begin",
+                    ],
+                    "settings": {
+                        "foreground": "#d1c96b",
+                    }
+                },
+                {
+                    "scope": [
+                        "constant.language",
+                        "constant.numeric",
+                    ],
+                    "settings": {
+                        "foreground": "#6bcaff",
+                    }
+                },
+                {
+                    "scope": [
+                        "constant.numeric.integer",
+                        "constant.numeric.float",
+                        "constant.numeric.hex",
+                        "constant.numeric.octal"
+                    ],
+                    "settings": {
+                        "foreground": "#a073c6",
+                    }
+                },
+            ]
+        }
+    },
 }
