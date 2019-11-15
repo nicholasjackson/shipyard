@@ -1,12 +1,30 @@
-#!/bin/bash -e
+#!/bin/bash -Ee
+
 VERSION=0.3.1
 
 CONFIG=$HOME/.shipyard
+
+INSTALL_DOCKER_IMAGES=("k8s.gcr.io/pause:3.1")
+INSTALL_DOCKER_IMAGES+=("coredns/coredns:1.6.3")
+INSTALL_DOCKER_IMAGES+=("busybox:latest")
+INSTALL_DOCKER_IMAGES+=("kubernetesui/dashboard:v2.0.0-beta4")
+INSTALL_DOCKER_IMAGES+=("kubernetesui/metrics-scraper:v1.0.1")
+INSTALL_DOCKER_IMAGES+=("rancher/local-path-provisioner:v0.0.11")
+INSTALL_DOCKER_IMAGES+=("hashicorp/consul-k8s:0.9.2")
+INSTALL_DOCKER_IMAGES+=("consul:1.6.1")
+INSTALL_DOCKER_IMAGES+=("envoyproxy/envoy-alpine:v1.10.0")
+
+K3S_DOCKER_IMAGE="rancher/k3s:v0.9.1"
+KIND_DOCKER_IMAGE=""
+TOOLS_DOCKER_IMAGE="nicholasjackson/consul-k8s-tools:$VERSION"
+VSCODE_DOCKER_IMAGE="nicholasjackson/code-server:$VERSION"
 
 # Allow install folder override for development
 if [[ ! -z $CONFIG_TMP ]]; then
   CONFIG=$CONFIG_TMP
 fi
+
+LOG_FILE="$CONFIG/shipyard.log"
 
 function up() {
   local TYPE=$1
@@ -18,20 +36,55 @@ function up() {
   local NETWORK_IP=$7
   local DOCKER_IMAGES=${@:8}
 
+  # If ORIGINALROOT is set we are running from vscode
+  if [[ "$ORIGINALROOT" != "" ]]; then
+    CONFIG=$ORIGINALROOT  
+  fi
+
+  if [[ "$CONSUL_VALUES" == "default" ]]; then
+    CONSUL_VALUES="$CONFIG/config/helm-charts/consul-values.yaml"
+  else
+    # Check if CONSUL_VALUES is a relative path
+    if [[ "${CONSUL_VALUES:0:2}" == "./" ]]; then
+      # Make absolute
+      CONSUL_VALUES="$PWD/${CONSUL_VALUES:2}"
+    fi
+  fi
+  
+  # If HOSTROOT is set we are running from vscode
+  # we need to try and replace the SRCROOT in CONSUL_VALUES with the HOSTROOT
+  if [[ "$HOSTROOT" != "" ]]; then
+    # When running in VSCode we can only accept values in SRCROOT
+    if [[ $CONSUL_VALUES  != $SRCROOT* ]]; then
+      echo "Error: Invalid value for '--consul-values', file $CONSUL_VALUES must be in path $SRCROOT"
+      exit 1
+    fi
+
+    # Substitue the SRCROOT for HOSTROOT as yard create actually runs on the host
+    CONSUL_VALUES="${CONSUL_VALUES/$SRCROOT/$HOSTROOT}"
+  fi
+
   docker run \
     --rm \
     --network host \
     -it \
     -v "/var/run/docker.sock:/var/run/docker.sock" \
-    -v "$CONFIG:/files" \
+    -v "$CONFIG:/root/.shipyard" \
+    -v "$CONFIG/yard:/usr/local/bin/yard" \
     -v "$CONSUL_VALUES:/helm/consul-values.yaml" \
-    -w "/files" nicholasjackson/consul-k8s-tools:$VERSION \
-    bash -c "./yard create $TYPE $NAME $CONSUL_PORT $DASHBOARD_PORT $NETWORK $NETWORK_IP $DOCKER_IMAGES"
+    $TOOLS_DOCKER_IMAGE \
+    bash -c "yard create $TYPE $NAME $CONSUL_PORT $DASHBOARD_PORT $NETWORK $NETWORK_IP $DOCKER_IMAGES"
 }
 
 function down() {
   local TYPE=$1
   local NAME=$2
+  
+  # If ORIGINALROOT is set we are running from vscode
+  if [[ "$ORIGINALROOT" != "" ]];then
+    CONFIG=$ORIGINALROOT  
+  fi
+
 
   # get forwarded ports and delete
   FORWARDED=$(docker ps -q --filter "name=^yard-$NAME-")
@@ -44,9 +97,10 @@ function down() {
     --network host \
     -it \
     -v "/var/run/docker.sock:/var/run/docker.sock" \
-    -v "$CONFIG:/files" \
-    -w "/files" nicholasjackson/consul-k8s-tools:$VERSION \
-    bash -c "./yard destroy $1 $2"
+    -v "$CONFIG:/root/.shipyard" \
+    -v "$CONFIG/yard:/usr/local/bin/yard" \
+    $TOOLS_DOCKER_IMAGE \
+    bash -c "yard destroy $1 $2"
 }
 
 function expose_port() {
@@ -95,6 +149,11 @@ function expose_port() {
   done
   COMMAND+="tail -f /dev/null"
 
+  # If ORIGINALROOT is set we are running from vscode
+  if [[ "$ORIGINALROOT" != "" ]]; then
+    CONFIG=$ORIGINALROOT  
+  fi
+
   docker run \
     --rm -it \
     -d \
@@ -103,8 +162,9 @@ function expose_port() {
     -v $CONFIG:/files $FOLDER \
     -e "KUBECONFIG=/files/yards/$NAME/kubeconfig-docker.yml" \
     $LINKS \
-    nicholasjackson/consul-k8s-tools:$VERSION \
-    bash -c "$COMMAND"
+    $TOOLS_DOCKER_IMAGE \
+    bash -c "$COMMAND" \
+    >> $LOG_FILE 2>&1
 
   if [[ "$NETWORK_IP" != "auto" ]]; then
     NETWORK_IP="--ip $NETWORK_IP"
@@ -114,7 +174,8 @@ function expose_port() {
 
   # Attach to a second network
   if [[ "$NETWORK_NAME" != "null" ]]; then
-    docker network connect $NETWORK_NAME yard-$NAME-$EXPOSE_MD5 $NETWORK_IP
+    docker network connect $NETWORK_NAME yard-$NAME-$EXPOSE_MD5 $NETWORK_IP \
+      >> $LOG_FILE 2>&1
   fi
 }
 
@@ -167,7 +228,8 @@ function tools() {
       -e "KUBECONFIG=/files/yards/$NAME/kubeconfig-docker.yml" \
       $CONSUL_ENV \
       $LINKS \
-      nicholasjackson/consul-k8s-tools:$VERSION $COMMAND
+      $TOOLS_DOCKER_IMAGE $COMMAND \
+      >> $LOG_FILE 2>&1
       
     exit 0
   fi
@@ -184,13 +246,22 @@ function tools() {
     -v $CONFIG:/files \
     -v $FOLDER:/work \
     -e "KUBECONFIG=/files/yards/$NAME/kubeconfig.yml" \
-    nicholasjackson/consul-k8s-tools:$VERSION $COMMAND
+    $TOOLS_DOCKER_IMAGE $COMMAND \
+    >> $LOG_FILE 2>&1
 }
 
 function vs_code() {
   local NAME=$1
   local FOLDER=$2
   local SETTINGS=$3
+
+  # Check if VSCode running
+  IMAGES=$(docker ps -q --filter "ancestor=nicholasjackson/code-server")
+  if [[ "$IMAGES" != "" ]];then
+    echo ""
+    echo "VSCode is already running use 'docker kill vscode' to stop before re-running this command"
+    exit 1
+  fi
 
   echo "Starting VS Code"
   echo ""
@@ -211,22 +282,27 @@ function vs_code() {
   # Here be dragons, this seems to work, but 
   # appologies for anyone debugging this
   # hacks on hacks to allow shipyard to work from inside vscode
+
+  # Map the original config root for running yard in vscode terminal
+  # Map the original source for commands which require source root  e.g. up
+  # Map the  src ROOT to use for substitution
   docker run --rm -it -d \
     -p 127.0.0.1:8080:8080 \
     -v "$FOLDER:/home/coder/project" \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    -v "$CONFIG:/files" \
     -v "$HOME/.shipyard:/root/.shipyard" \
-    -v "$HOME/.shipyard:$HOME/.shipyard" \
-    -v "$HOME/.shipyard/yard:/usr/local/bin/yard" \
+    -v "$CONFIG/yard:/usr/local/bin/yard" \
     -v "$SETTINGS:/root/.local/share/code-server/User/settings.json" \
     --name vscode \
     --privileged \
-    -e "KUBECONFIG=/files/yards/$NAME/kubeconfig-docker.yml" \
-    -e "CONFIG_TMP=$HOME/.shipyard" \
+    -e "KUBECONFIG=/root/.shipyard/yards/$NAME/kubeconfig-docker.yml" \
+    -e "ORIGINALROOT=$CONFIG" \
+    -e "HOSTROOT=$FOLDER" \
+    -e "SRCROOT=/home/coder/project" \
     $CONSUL_ENV \
     $LINKS \
-    nicholasjackson/code-server:$VERSION
+    $VSCODE_DOCKER_IMAGE \
+    >> $LOG_FILE 2>&1
 
   sleep 10
   
@@ -248,26 +324,34 @@ function push_image() {
     local COMMAND="kind load docker-image --name $NAME $IMAGE"
   fi
 
+  # If ORIGINALROOT is set we are running from vscode
+  if [[ "$ORIGINALROOT" != "" ]]; then
+    CONFIG=$ORIGINALROOT  
+  fi
+
   docker run \
     --rm \
     --network host \
     -it \
     -v "/var/run/docker.sock:/var/run/docker.sock" \
-    -v "$CONFIG:/files" \
-    -w "/files" nicholasjackson/consul-k8s-tools:$VERSION \
-    bash -c "$COMMAND"
+    -v "$CONFIG:/root/.shipyard" \
+    $TOOLS_DOCKER_IMAGE \
+    bash -c "$COMMAND" \
+    >> $LOG_FILE 2>&1
 }
 
 function destroy() {
   local CLUSTER_NAME=$1
 
-  kind delete cluster --name $CLUSTER_NAME
+  kind delete cluster --name $CLUSTER_NAME \
+    >> $LOG_FILE 2>&1
 }
 
 function destroy_k3s() {
   local CLUSTER_NAME=$1
   
-  k3d delete --name $CLUSTER_NAME
+  k3d delete --name $CLUSTER_NAME \
+    >> $LOG_FILE 2>&1
 }
 
 function install_cluster() {
@@ -303,43 +387,35 @@ nodes:
     hostPort: $DASHBOARD_PORT
 EOF
 
-	kind create cluster --config /tmp/${CLUSTER_NAME}_config.yml --name $CLUSTER_NAME
+	kind create cluster --config /tmp/${CLUSTER_NAME}_config.yml --name $CLUSTER_NAME \
+    >> $LOG_FILE 2>&1
 
-  mkdir -p ./yards/$CLUSTER_NAME
+  mkdir -p $CONFIG/yards/$CLUSTER_NAME
 
   # Export KubeConfig
-  cat $(kind get kubeconfig-path --name $CLUSTER_NAME) > ./yards/$CLUSTER_NAME/kubeconfig.yml
+  cat $(kind get kubeconfig-path --name $CLUSTER_NAME) > $CONFIG/yards/$CLUSTER_NAME/kubeconfig.yml \
+    >> $LOG_FILE 2>&1
  
   # Create a docker version of the config which replaces the address with the 
   # name of the container
-  sed "s/127.0.0.1:[0-9]*/$CLUSTER_NAME-control-plane:6443/" ./yards/$CLUSTER_NAME/kubeconfig.yml > ./yards/$CLUSTER_NAME/kubeconfig-docker.yml
+  sed "s/127.0.0.1:[0-9]*/$CLUSTER_NAME-control-plane:6443/" \
+    $CONFIG/yards/$CLUSTER_NAME/kubeconfig.yml > $CONFIG/yards/$CLUSTER_NAME/kubeconfig-docker.yml
   
   # write to the state file
   echo "k8s" > ./yards/$CLUSTER_NAME/state
 
   # add the default images to the list of custom images
-  DOCKER_IMAGES+=("k8s.gcr.io/pause:3.1")
-  DOCKER_IMAGES+=("coredns/coredns:1.6.3")
-  DOCKER_IMAGES+=("busybox:latest")
-  DOCKER_IMAGES+=("kubernetesui/dashboard:v2.0.0-beta4")
-  DOCKER_IMAGES+=("kubernetesui/metrics-scraper:v1.0.1")
-  DOCKER_IMAGES+=("rancher/local-path-provisioner:v0.0.11")
-
-  DOCKER_IMAGES+=("hashicorp/consul-k8s:0.9.2")
-  DOCKER_IMAGES+=("consul:1.6.1")
-  DOCKER_IMAGES+=("envoyproxy/envoy-alpine:v1.10.0")
-
-  # Cache images locally for faster startup
-  for i in "${DOCKER_IMAGES[@]}"
+  for IMAGE in  "${INSTALL_DOCKER_IMAGES[@]}"
   do
-    docker pull $i || true # ignore errors in case no internet
+    DOCKER_IMAGES+=("$IMAGE")
   done
 
   # Import the images to the server
   for i in "${DOCKER_IMAGES[@]}"
   do
     echo "kind load docker-image --name $CLUSTER_NAME $i"
-    kind load docker-image --name $CLUSTER_NAME $i
+    kind load docker-image --name $CLUSTER_NAME $i \
+    >> $LOG_FILE 2>&1
   done
  
   # are we using a custom ip for the docker network
@@ -351,8 +427,10 @@ EOF
   
   # Attach to a second network
   if [[ "$NETWORK_NAME" != "null" ]]; then
-    docker network connect $NETWORK_NAME $CLUSTER_NAME-control-plane
-    docker network connect $NETWORK_NAME $CLUSTER_NAME-worker $NETWORK_IP
+    docker network connect $NETWORK_NAME $CLUSTER_NAME-control-plane \
+    >> $LOG_FILE 2>&1
+    docker network connect $NETWORK_NAME $CLUSTER_NAME-worker $NETWORK_IP \
+    >> $LOG_FILE 2>&1
   fi
 }
 
@@ -365,7 +443,6 @@ function install_cluster_k3s() {
   local DOCKER_IMAGES=(${@:6})
 
 	echo "#### Create Kubernetes cluster in Docker using K3s"
-  echo ""
 
   # Generate a random API server port
   API_SERVER_PORT=$(shuf -i 64000-65000 -n 1)
@@ -377,43 +454,36 @@ function install_cluster_k3s() {
     --wait 60 \
     --api-port $API_SERVER_PORT \
     --image rancher/k3s:v0.9.1 \
-    --server-arg "--no-deploy=traefik"
+    --server-arg "--no-deploy=traefik" \
+    >> $LOG_FILE 2>&1
 
   # add the default images to the list of custom images
-  DOCKER_IMAGES+=("k8s.gcr.io/pause:3.1")
-  DOCKER_IMAGES+=("coredns/coredns:1.6.3")
-  DOCKER_IMAGES+=("busybox:latest")
-  DOCKER_IMAGES+=("kubernetesui/dashboard:v2.0.0-beta4")
-  DOCKER_IMAGES+=("kubernetesui/metrics-scraper:v1.0.1")
-  DOCKER_IMAGES+=("rancher/local-path-provisioner:v0.0.11")
-
-  DOCKER_IMAGES+=("hashicorp/consul-k8s:0.9.2")
-  DOCKER_IMAGES+=("consul:1.6.1")
-  DOCKER_IMAGES+=("envoyproxy/envoy-alpine:v1.10.0")
-
-  # Cache images locally for faster startup
-  for i in "${DOCKER_IMAGES[@]}"
+  for IMAGE in  "${INSTALL_DOCKER_IMAGES[@]}"
   do
-    docker pull $i || true # ignore errors in case no internet
+    DOCKER_IMAGES+=("$IMAGE")
   done
  
   # Import images from the local Docker instance to K8s
   k3d import-images -n $CLUSTER_NAME \
-    ${DOCKER_IMAGES[*]}
+    ${DOCKER_IMAGES[*]} \
+    >> $LOG_FILE 2>&1
   
   # Export KubeConfig
   mkdir -p /root/.config/k3d/$CLUSTER_NAME/
-  mkdir -p ./yards/$CLUSTER_NAME
+  mkdir -p $CONFIG/yards/$CLUSTER_NAME
   
-  k3d get-kubeconfig -n $CLUSTER_NAME
-  mv /root/.config/k3d/$CLUSTER_NAME/kubeconfig.yaml ./yards/$CLUSTER_NAME/kubeconfig.yml
+  k3d get-kubeconfig -n $CLUSTER_NAME \
+    >> $LOG_FILE 2>&1
+
+  mv /root/.config/k3d/$CLUSTER_NAME/kubeconfig.yaml $CONFIG/yards/$CLUSTER_NAME/kubeconfig.yml
 
   # Create a docker version of the config which replaces the address with the 
   # name of the container
-  sed "s/127.0.0.1:[0-9]*/k3d-$CLUSTER_NAME-server:$API_SERVER_PORT/" ./yards/$CLUSTER_NAME/kubeconfig.yml > ./yards/$CLUSTER_NAME/kubeconfig-docker.yml
+  sed "s/127.0.0.1:[0-9]*/k3d-$CLUSTER_NAME-server:$API_SERVER_PORT/" \
+    $CONFIG/yards/$CLUSTER_NAME/kubeconfig.yml > $CONFIG/yards/$CLUSTER_NAME/kubeconfig-docker.yml
   
   # write to the state file
-  echo "k3s" > ./yards/$CLUSTER_NAME/state
+  echo "k3s" > $CONFIG/yards/$CLUSTER_NAME/state
   
   # are we using a custom ip for the docker network
   if [[ "$NETWORK_IP" != "auto" ]]; then
@@ -424,54 +494,57 @@ function install_cluster_k3s() {
 
   # Attach to a second network
   if [[ "$NETWORK_NAME" != "null" ]]; then
-    docker network connect $NETWORK_NAME k3d-$CLUSTER_NAME-server $NETWORK_IP
+    docker network connect $NETWORK_NAME k3d-$CLUSTER_NAME-server $NETWORK_IP \
+    >> $LOG_FILE 2>&1
   fi
 }
 
 function install_core() {
 	# Wait for cluster to be available
 	echo "#### Waiting for Kubernetes to start"
-  echo ""
 
-	until $(kubectl get pods); do
+	until kubectl get pods >> $LOG_FILE 2>&1; do
 		sleep 1
 	done
-
-	echo "#### Install local storage controller for Kubernetes"
-  echo ""
 }
 
 function install_k8s() {
-  echo "#### Install K8s Config"
-  echo ""
+  echo "#### Install Kubernetes dashboard and Local storage controller"
 
   # Install the CRDs for the controller
-  kubectl apply -f ./config/k8s_config
+  kubectl apply -f $CONFIG/config/k8s_config \
+    >> $LOG_FILE 2>&1
 }
 
 function install_consul() {
   echo "#### Installing Consul using latest Helm chart"
-  echo ""
 
 	# Install the Consul helm chart	
-	helm install -f /helm/consul-values.yaml consul ./config/helm-charts/consul-helm-0.9.0
+	helm install -f /helm/consul-values.yaml consul $CONFIG/config/helm-charts/consul-helm-0.9.0 \
+    >> $LOG_FILE 2>&1
 
   # Wait for Consul server to be ready
-  echo "#### Waiting for Consul server to start"
-  echo ""
-  until kubectl get pods -l component=server --field-selector=status.phase=Running | grep "/1" | grep -v "0/"; do
+  echo "##### Waiting for Consul server to start"
+  until check_pod "server"; do 
     sleep 1
   done
   
   # Wait for Consul client to be ready
-  echo "#### Waiting for Consul client to start"
-  echo ""
-  until kubectl get pods -l component=client --field-selector=status.phase=Running | grep "/1" | grep -v "0/"; do
+  echo "##### Waiting for Consul client to start"
+  until check_pod "client"; do 
     sleep 1
   done
 
   # Get a root ACL token and write to disk
   # kubectl get secret consul-consul-bootstrap-acl-token -o json | jq -r .data.token > consul_acl.token 
+}
+
+function check_pod() {
+  CHECK=$(kubectl get pods -l component=$1 --field-selector=status.phase=Running 2>&1)
+  echo "$CHECK" >> $LOG_FILE
+
+  RUNNING=$(echo "$CHECK"  | grep "/1" | grep -v "0/" 2>&1)
+  return $?
 }
 
 
@@ -507,39 +580,40 @@ function check_latest() {
 
 function upgrade() {
   curl https://shipyard.demo.gs/install.sh | bash
-  curl -s "https://shipyard.demo.gs/latest_version.html" > $CONFIG/latest || true
-  local LATEST_VERSION=$(cat $CONFIG/LATEST)
+}
 
-  # Remove old docker images
-  echo "Removing old Docker images"
-  
-  # Get the latest tools
-  echo "Fetching latest tools"
-  docker pull nicholasjackson/consul-k8s-tools:$LATEST_VERSION
+function init() {
+  echo "Initalizing Shipyard"
 
-  # Remove old tools
+  # Cache local images
+  for image in "${INSTALL_DOCKER_IMAGES[@]}"
+  do
+    docker pull $image >>$CONFIG/shipyard.log 2>&1
+  done
+
+  # Cache tools image
+  docker pull $TOOLS_DOCKER_IMAGE >>$CONFIG/shipyard.log 2>&1
+
+  # Clean old tools images
   local ALL=$(docker images --filter "reference=nicholasjackson/consul-k8s-tools:*" --format "{{.Repository}}:{{.Tag}}")
-  echo "Clean up old tools"
   for IMAGE in $ALL
   do
-    if [[ "$IMAGE" != "nicholasjackson/consul-k8s-tools:$LATEST_VERSION" ]] &&
+    if [[ "$IMAGE" != $TOOLS_DOCKER_IMAGE ]] &&
        [[ "$IMAGE" != "nicholasjackson/consul-k8s-tools:latest" ]]; then
       docker rmi $IMAGE
     fi
   done
 
-  # Has the user used the vscode version, if so fetch it
+  # If vscode image installed update otherwise ignore
   local ALL=$(docker images --filter "reference=nicholasjackson/code-server:*" --format "{{.Repository}}:{{.Tag}}")
   if [[ "$ALL" != "" ]]; then
     # Get the latest vscode
-    echo "Fetching latest vscode"
-    docker pull nicholasjackson/code-server:$LATEST_VERSION
+    docker pull $VSCODE_DOCKER_IMAGE
 
     # Clean up old version
-    echo "Clean up old vscode images"
     for IMAGE in $ALL
     do
-    if [[ "$IMAGE" != "nicholasjackson/code-server:$LATEST_VERSION" ]] &&
+    if [[ "$IMAGE" != $VSCODE_DOCKER_IMAGE ]] &&
        [[ "$IMAGE" != "nicholasjackson/code-server:latest" ]]; then
         docker rmi $IMAGE
       fi
@@ -561,15 +635,25 @@ function logo() {
   echo ""
 }
 
+init_log() {
+  rm -f $CONFIG/shipyard.log
+  touch $CONFIG/shipyard.log
+  trap 'err_report $LINENO' ERR
+}
+
+err_report() {
+  echo "Error occurred on line $1, check the shipyard log at \$HOME/.shipyard/shipyard.log"
+}
 
 case "$1" in
   "up")
+
     # check if consul port overriden
     CONSUL_PORT="8500"
     DASHBOARD_PORT="8443"
     TYPE="k3s"
     NAME="shipyard"
-    CONSUL_VALUES="$CONFIG/config/helm-charts/consul-values.yaml"
+    CONSUL_VALUES="default"
     NETWORK="null"
     NETWORK_IP="auto"
     DOCKER_IMAGES=()
@@ -686,6 +770,8 @@ case "$1" in
     fi
     ;;
   "expose")
+    init_log
+
     SERVICE_NAME=""
     SERVICE_PORT=()
     NETWORK="null"
@@ -779,6 +865,8 @@ case "$1" in
     expose_port $NAME $SERVICE_NAME $NETWORK $NETWORK_IP $BIND_IP $NAMESPACE ${SERVICE_PORT[@]}
     ;;
   "tools")
+    init_log
+
     NAME="shipyard"
     FOLDER=$(pwd)
 
@@ -819,6 +907,8 @@ case "$1" in
     tools $NAME $FOLDER;
     ;;
   "exec")
+    init_log
+
     NAME="shipyard"
     FOLDER=$(pwd)
     COMMAND=""
@@ -868,6 +958,8 @@ case "$1" in
     tools $NAME $FOLDER $COMMAND;
     ;;
   "push")
+    init_log
+
     IMAGE=""
     NAME="shipyard"
     
@@ -909,6 +1001,8 @@ case "$1" in
     push_image $IMAGE $NAME
     ;;
   "upgrade")
+    init_log
+
     logo;
     echo "Upgrading to latest version";
     echo "";
@@ -919,6 +1013,8 @@ case "$1" in
     uninstall;
     ;;
   "vscode")
+    init_log
+
     NAME="shipyard"
     FOLDER=$(pwd)
     SETTINGS=$CONFIG/config/vscode_settings.json
@@ -964,8 +1060,9 @@ case "$1" in
     vs_code $NAME $FOLDER $SETTINGS;
     ;;
   "create")
+    init_log
+
     echo "### Creating Kubernetes cluster, this process will take approximately 2 minutes";
-    echo ""
 
     TYPE=$2
     NAME=$3
@@ -975,7 +1072,7 @@ case "$1" in
     NETWORK_IP=$7
     DOCKER_IMAGES=${@:8}
 
-    export KUBECONFIG="$(pwd)/yards/$NAME/kubeconfig.yml"
+    export KUBECONFIG="$CONFIG/yards/$NAME/kubeconfig.yml"
     
     if [[ $TYPE == "k8s" ]]; then
       install_cluster $NAME $CONSUL_PORT $DASHBOARD_PORT $NETWORK $NETWORK_IP ${DOCKER_IMAGES[@]};
@@ -1002,6 +1099,8 @@ case "$1" in
     echo "When finished use \"yard down\" to cleanup and remove resources";
     ;;
   "destroy")
+    init_log
+
     TYPE=$2
     NAME=$3
     if [[ $TYPE == "k3s" ]]; then
@@ -1009,6 +1108,9 @@ case "$1" in
     else
       destroy $NAME;
     fi
+    ;;
+  "init")
+      init
     ;;
   *)
     logo;

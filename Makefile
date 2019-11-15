@@ -2,6 +2,10 @@ VERSION=0.3.1
 IMAGE_TOOLS=nicholasjackson/consul-k8s-tools
 IMAGE_VSCODE=nicholasjackson/code-server
 
+install_dev:
+	# install yard for local testing
+	cp ./install/yard $(HOME)/.shipyard
+
 build_tools:
 	docker build -t $(IMAGE_TOOLS):$(VERSION) -f ./dockerfiles/Dockerfile-tools ./dockerfiles
 	docker tag $(IMAGE_TOOLS):$(VERSION) $(IMAGE_TOOLS):latest

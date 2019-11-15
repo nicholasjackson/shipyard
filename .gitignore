@@ -1,4 +1,3 @@
 install/latest
-install/yards/*/state
-install/yards/*/kubeconfig.yml
-install/yards/*/kubeconfig-docker.yml
+install/yards/*
+install/shipyard.log
