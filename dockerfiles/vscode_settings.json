@@ -1,7 +1,0 @@
-{
-    "squash.extraArgs": "--crisock /run/k3s/containerd/containerd.sock",
-    "go.formatTool": "goimports",
-    "go.useLanguageServer": true,
-    "squash.path": "/usr/local/bin/squashctl",
-    "squash.remotePath": "/Users/nicj/Developer/go/src/github.com/nicholasjackson/consul-service-mesh-for-developers"
-}

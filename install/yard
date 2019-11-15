@@ -220,7 +220,6 @@ function vs_code() {
     -v "$HOME/.shipyard:$HOME/.shipyard" \
     -v "$HOME/.shipyard/yard:/usr/local/bin/yard" \
     -v "$SETTINGS:/root/.local/share/code-server/User/settings.json" \
-    -v "$SETTINGS:/home/coder/.local/share/code-server/User/settings.json" \
     --name vscode \
     --privileged \
     -e "KUBECONFIG=/files/yards/$NAME/kubeconfig-docker.yml" \
@@ -508,6 +507,44 @@ function check_latest() {
 
 function upgrade() {
   curl https://shipyard.demo.gs/install.sh | bash
+  curl -s "https://shipyard.demo.gs/latest_version.html" > $CONFIG/latest || true
+  local LATEST_VERSION=$(cat $CONFIG/LATEST)
+
+  # Remove old docker images
+  echo "Removing old Docker images"
+  
+  # Get the latest tools
+  echo "Fetching latest tools"
+  docker pull nicholasjackson/consul-k8s-tools:$LATEST_VERSION
+
+  # Remove old tools
+  local ALL=$(docker images --filter "reference=nicholasjackson/consul-k8s-tools:*" --format "{{.Repository}}:{{.Tag}}")
+  echo "Clean up old tools"
+  for IMAGE in $ALL
+  do
+    if [[ "$IMAGE" != "nicholasjackson/consul-k8s-tools:$LATEST_VERSION" ]] &&
+       [[ "$IMAGE" != "nicholasjackson/consul-k8s-tools:latest" ]]; then
+      docker rmi $IMAGE
+    fi
+  done
+
+  # Has the user used the vscode version, if so fetch it
+  local ALL=$(docker images --filter "reference=nicholasjackson/code-server:*" --format "{{.Repository}}:{{.Tag}}")
+  if [[ "$ALL" != "" ]]; then
+    # Get the latest vscode
+    echo "Fetching latest vscode"
+    docker pull nicholasjackson/code-server:$LATEST_VERSION
+
+    # Clean up old version
+    echo "Clean up old vscode images"
+    for IMAGE in $ALL
+    do
+    if [[ "$IMAGE" != "nicholasjackson/code-server:$LATEST_VERSION" ]] &&
+       [[ "$IMAGE" != "nicholasjackson/code-server:latest" ]]; then
+        docker rmi $IMAGE
+      fi
+    done
+  fi
 }
 
 function logo() {

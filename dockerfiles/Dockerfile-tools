@@ -20,7 +20,10 @@ RUN apt-get update && \
       dnsutils \
       ngrep \
       iputils-ping \
-      gnupg-agent && \
+      gnupg-agent \
+      bsdtar \
+      jq && \
+      git && \
       apt-get clean && \
       apt-get autoremove --purge
 

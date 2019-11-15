@@ -1,51 +1,29 @@
-FROM codercom/code-server:latest
+FROM codercom/code-server:latest AS codercom
 
-RUN sudo apt-get update && sudo apt-get install -y curl apt-transport-https ca-certificates software-properties-common gnupg-agent vim zip jq iputils-ping \
-      net-tools bsdtar
-
-# Install Kubectl
-RUN curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add - && \
-    echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list && \
-    sudo apt-get update && \
-    sudo apt-get install -y kubectl
-
-# Install Helm
-RUN curl -sL https://get.helm.sh/helm-v3.0.0-beta.4-linux-amd64.tar.gz -o ./helm.tar.gz && \
-    tar -xzf ./helm.tar.gz && \
-    sudo mv ./linux-amd64/helm /usr/local/bin && \
-    sudo rm ./helm.tar.gz
-
-# Install Docker CLI
-RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add - && \
-    sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu  $(lsb_release -cs)  stable" && \
-    sudo apt-get update && \
-    sudo apt-get install docker-ce-cli
-
-# Install Consul CLI
-RUN curl -sL https://releases.hashicorp.com/consul/1.6.1/consul_1.6.1_linux_amd64.zip -o /tmp/consul.zip && \
-    unzip /tmp/consul.zip && \
-    sudo mv consul /usr/local/bin
-
-# Install Go
-RUN wget https://dl.google.com/go/go1.13.1.linux-amd64.tar.gz -O /tmp/go1.13.tar.gz && \
-    sudo tar -C /usr/local -xzf /tmp/go1.13.tar.gz && \
-    rm /tmp/go1.13.tar.gz
-
-# Install Node
-RUN curl -sL https://deb.nodesource.com/setup_13.x | sudo -E bash - && \
-      sudo apt-get install -y nodejs
-
-# Install Squash
-RUN curl -sL https://github.com/solo-io/squash/releases/download/v0.5.18/squashctl-linux -o squashctl && \
-    sudo mv ./squashctl /usr/local/bin && \
-    sudo chmod +x /usr/local/bin/squashctl
+FROM nicholasjackson/consul-k8s-tools:latest
 
 ENV GOPATH="/home/coder/go"
 ENV PATH="$PATH:/usr/local/go/bin:$GOPATH/bin"
 ENV GO111MODULE="on"
+ENV SHELL=/bin/bash
 
-# Install tools for VSCode // Currently broken due to uudashr/gopkgs
-RUN go get github.com/mdempsky/gocode && \
+ENV GO_VERSION=1.13.4
+ENV EXT_GO_VERSION=0.11.9
+ENV EXT_SQUASH_VERSION=0.5.18
+ENV EXT_HCL_VERSION=0.0.5
+ENV EXT_YAML_VERSION=0.5.3
+ENV EXT_NORD_VERSION=0.12.0
+
+# Make the default user admin
+USER root
+
+# Add the dependencies for code-server
+
+# Install Go and packages for VSCode
+RUN curl -sL https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz -o /tmp/go${GO_VERSION}.tar.gz && \
+    tar -C /usr/local -xzf /tmp/go${GO_VERSION}.tar.gz && \
+    rm /tmp/go${GO_VERSION}.tar.gz && \
+    go get github.com/mdempsky/gocode && \
     go get golang.org/x/tools/gopls && \
     go get github.com/uudashr/gopkgs/cmd/gopkgs && \
     go get github.com/ramya-rao-a/go-outline && \
@@ -65,41 +43,54 @@ RUN go get github.com/mdempsky/gocode && \
     go get github.com/cweill/gotests && \
     go get github.com/fatih/gomodifytags
 
-# extensions to code-server
-RUN code-server --install-extension ms-vscode.go
-RUN code-server --install-extension redhat.vscode-yaml 
-RUN code-server --install-extension wholroyd.hcl
 
-# Symlink extensions for root user
-RUN sudo mkdir -p /root/.local/share/code-server/extensions
+# Install Node
+RUN curl -sL https://deb.nodesource.com/setup_13.x -o /tmp/nodesetup.sh && \
+      bash /tmp/nodesetup.sh && \
+      apt-get install -y nodejs
 
-RUN sudo ln -s /home/coder/.local/share/code-server/extensions/ms-vscode.go-0.11.9/ /root/.local/share/code-server/extensions && \
-  cd /home/coder/.local/share/code-server/extensions/ms-vscode.go-0.11.9 && \
-  npm i
 
-RUN sudo ln -s /home/coder/.local/share/code-server/extensions/redhat.vscode-yaml-0.5.3/ /root/.local/share/code-server/extensions && \
-      cd /home/coder/.local/share/code-server/extensions/redhat.vscode-yaml-0.5.3 && \
+# Add Code server
+COPY --from=codercom /usr/local/bin/code-server /usr/local/bin/code-server
+
+# Extensions to code-server
+RUN mkdir -p /root/.local/share/code-server/extensions
+
+# VSCode Go
+RUN curl -JL https://marketplace.visualstudio.com/_apis/public/gallery/publishers/ms-vscode/vsextensions/Go/${EXT_GO_VERSION}/vspackage | \
+      bsdtar -xvf - extension && \
+      mv ./extension /root/.local/share/code-server/extensions/ms-vscode.go-${EXT_GO_VERSION} && \
+      cd /root/.local/share/code-server/extensions/ms-vscode.go-${EXT_GO_VERSION} && \
       npm i
 
-RUN sudo ln -s /home/coder/.local/share/code-server/extensions/wholroyd.hcl-0.0.4/ /root/.local/share/code-server/extensions && \
-      cd /home/coder/.local/share/code-server/extensions/wholroyd.hcl-0.0.4 && \
+
+# Squash debugger from main VSCode marketplace not code-server
+RUN curl -JL  https://marketplace.visualstudio.com/_apis/public/gallery/publishers/ilevine/vsextensions/squash/${EXT_SQUASH_VERSION}/vspackage | \
+      bsdtar -xvf - extension && \
+      mv ./extension /root/.local/share/code-server/extensions/ilevine.squash-${EXT_SQUASH_VERSION} && \
+      cd /root/.local/share/code-server/extensions/ilevine.squash-${EXT_SQUASH_VERSION} && \
       npm i
 
-# Install Squash Debugger from the official repo and build
-RUN curl -JL  https://marketplace.visualstudio.com/_apis/public/gallery/publishers/ilevine/vsextensions/squash/0.5.18/vspackage | bsdtar -xvf - extension && \
-      mv ./extension /home/coder/.local/share/code-server/extensions/ilevine.squash-0.5.18 && \
-      sudo ln -s /home/coder/.local/share/code-server/extensions/ilevine.squash-0.5.18/ /root/.local/share/code-server/extensions && \
-      cd /home/coder/.local/share/code-server/extensions/ilevine.squash-0.5.18 && \
+# HCL
+RUN curl -JL https://marketplace.visualstudio.com/_apis/public/gallery/publishers/wholroyd/vsextensions/HCL/${EXT_HCL_VERSION}/vspackage | \
+      bsdtar -xvf - extension && \
+      mv ./extension /root/.local/share/code-server/extensions/wholroyd.HCL-${EXT_HCL_VERSION} && \
+      cd /root/.local/share/code-server/extensions/wholroyd.HCL-${EXT_HCL_VERSION} && \
       npm i
 
-# Set the shell to bash
-ENV SHELL=/bin/bash
+# YAML Formatting
+RUN curl -JL https://marketplace.visualstudio.com/_apis/public/gallery/publishers/redhat/vsextensions/vscode-yaml/${EXT_YAML_VERSION}/vspackage | \
+      bsdtar -xvf - extension && \
+      mv ./extension /root/.local/share/code-server/extensions/redhat.vscode-yaml-${EXT_YAML_VERSION} && \
+      cd /root/.local/share/code-server/extensions/redhat.vscode-yaml-${EXT_YAML_VERSION} && \
+      npm i
 
-# Add the default settings
-COPY ./vscode_settings.json /root/.local/share/code-server/User/settings.json
-COPY ./vscode_settings.json /home/coder/.local/share/code-server/User/settings.json
+# NORD Color scheme
+RUN curl -JL https://marketplace.visualstudio.com/_apis/public/gallery/publishers/arcticicestudio/vsextensions/nord-visual-studio-code/${EXT_NORD_VERSION}/vspackage | \
+      bsdtar -xvf - extension && \
+      mv ./extension /root/.local/share/code-server/extensions/arcticicestudio.nord-visual-studio-code-${EXT_NORD_VERSION} && \
+      cd /root/.local/share/code-server/extensions/arcticicestudio.nord-visual-studio-code-${EXT_NORD_VERSION} && \
+      npm i
 
-# Make the default user admin
-USER root
-
+EXPOSE 8080
 CMD ["code-server", "--allow-http", "--auth=none"]
