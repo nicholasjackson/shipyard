@@ -1,4 +1,4 @@
-VERSION=0.3.0
+VERSION=0.3.1
 IMAGE_TOOLS=nicholasjackson/consul-k8s-tools
 IMAGE_VSCODE=nicholasjackson/code-server
 
@@ -45,8 +45,8 @@ endif
 	echo "$(version)" > ./docs/latest_version.html
 
 	$(MAKE) update_version version=$(version)
-	$(MAKE) build_and_push_vscode 
 	$(MAKE) build_and_push_tools
+	$(MAKE) build_and_push_vscode 
 
 	git add .
 	git commit -m "Update version $(version)"

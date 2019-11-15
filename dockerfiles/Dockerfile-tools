@@ -22,7 +22,7 @@ RUN apt-get update && \
       iputils-ping \
       gnupg-agent \
       bsdtar \
-      jq && \
+      jq \
       git && \
       apt-get clean && \
       apt-get autoremove --purge
