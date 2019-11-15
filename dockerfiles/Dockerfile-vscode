@@ -17,9 +17,6 @@ ENV EXT_NORD_VERSION=0.12.0
 # Make the default user admin
 USER root
 
-# Add the dependencies for code-server
-RUN apt-get install -y bsdtar
-
 # Install Go and packages for VSCode
 RUN curl -sL https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz -o /tmp/go${GO_VERSION}.tar.gz && \
     tar -C /usr/local -xzf /tmp/go${GO_VERSION}.tar.gz && \
