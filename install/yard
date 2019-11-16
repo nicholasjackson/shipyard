@@ -592,8 +592,10 @@ function upgrade() {
 }
 
 function init() {
-  echo "Initalizing Shipyard"
+  echo ""
+  echo "## Initalizing Shipyard"
 
+  echo "### Caching Docker images for Kubernetes"
   # Cache local images
   for image in "${INSTALL_DOCKER_IMAGES[@]}"
   do
@@ -601,33 +603,40 @@ function init() {
   done
 
   # Cache tools image
+  echo "### Fetching tools"
   docker pull $TOOLS_DOCKER_IMAGE >>$CONFIG/shipyard.log 2>&1
 
   # Clean old tools images
+  echo "### Clean up old versions"
   local ALL=$(docker images --filter "reference=nicholasjackson/consul-k8s-tools:*" --format "{{.Repository}}:{{.Tag}}")
   for IMAGE in $ALL
   do
     if [[ "$IMAGE" != $TOOLS_DOCKER_IMAGE ]] &&
        [[ "$IMAGE" != "nicholasjackson/consul-k8s-tools:latest" ]]; then
-      docker rmi $IMAGE
+      docker rmi $IMAGE >> $LOG_FILE 2>&1
     fi
   done
 
   # If VSCode image installed update otherwise ignore
   local ALL=$(docker images --filter "reference=nicholasjackson/code-server:*" --format "{{.Repository}}:{{.Tag}}")
   if [[ "$ALL" != "" ]]; then
+    echo "### Fetching VSCode" 
     # Get the latest vscode
-    docker pull $VSCODE_DOCKER_IMAGE
+    docker pull $VSCODE_DOCKER_IMAGE >> $LOG_FILE 2>&1
 
     # Clean up old version
+    echo "### Clean up old versions"
     for IMAGE in $ALL
     do
     if [[ "$IMAGE" != $VSCODE_DOCKER_IMAGE ]] &&
        [[ "$IMAGE" != "nicholasjackson/code-server:latest" ]]; then
-        docker rmi $IMAGE
+        docker rmi $IMAGE >> $LOG_FILE 2>&1
       fi
     done
   fi
+
+  echo ""
+  echo "## Initization complete"
 }
 
 function logo() {
