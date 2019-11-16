@@ -636,7 +636,7 @@ function init() {
   fi
 
   echo ""
-  echo "## Initization complete"
+  echo "## Initialization complete"
 }
 
 function logo() {
