@@ -5,6 +5,7 @@ ENV DOCKER_VERSION=18.03.1-ce
 ENV KIND_VERSION=v0.5.1
 ENV KUBECTL_VERSION=latest
 ENV CONSUL_VERSION=1.6.1
+ENV VAULT_VERSION=1.3.0
 ENV HELM_VERSION=v3.0.0-beta.4
 ENV SQUASH_VERSION=v0.5.18
 ENV LOOP_VERSION=v0.0.1
@@ -55,6 +56,12 @@ RUN curl -sL https://releases.hashicorp.com/consul/${CONSUL_VERSION}/consul_${CO
     unzip consul.zip && \
     mv consul /usr/local/bin && \
     rm consul.zip
+
+# Install Vault CLI
+RUN curl -sL https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_VERSION}_linux_amd64.zip -o vault.zip && \
+    unzip vault.zip && \
+    mv vault /usr/local/bin && \
+    rm vault.zip
 
 # Install Squash
 RUN curl -sL https://github.com/solo-io/squash/releases/download/$SQUASH_VERSION/squashctl-linux -o squashctl && \

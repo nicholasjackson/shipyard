@@ -5,6 +5,8 @@ IMAGE_VSCODE=nicholasjackson/code-server
 install_dev:
 	# install yard for local testing
 	cp ./install/yard $(HOME)/.shipyard
+	rm -rf $(HOME)/.shipyard/config
+	cp -R ./install/config $(HOME)/.shipyard/config
 
 build_tools:
 	docker build -t $(IMAGE_TOOLS):$(VERSION) -f ./dockerfiles/Dockerfile-tools ./dockerfiles
@@ -36,7 +38,7 @@ update_version:
 	sed -i.bak 's/^VERSION=.*/VERSION=$(version)/' ./install/yard
 	rm ./install/yard.bak
 	
-	sed -i.bak 's/^VERSION=.*/\*\*VERSION=$(version)\*\*/' ./docs/index.md
+	sed -i.bak 's/^\*\*VERSION=.*/\*\*VERSION=$(version)\*\*/' ./docs/index.md
 	rm ./docs/index.md.bak
 
 update_version_number_and_push: 
