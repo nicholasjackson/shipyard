@@ -1,6 +1,6 @@
 #!/bin/bash -Ee
 
-VERSION=0.5.1
+VERSION=0.5.2
 
 CONFIG=$HOME/.shipyard
 
@@ -316,7 +316,7 @@ function vs_code() {
   # Map the original source for commands which require source root  e.g. up
   # Map the  src ROOT to use for substitution
   docker run --rm -it -d \
-    -p 127.0.0.1:8080:8080 \
+    -p 8080:8080 \
     -v "$FOLDER:/home/coder/project" \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$HOME/.shipyard:/root/.shipyard" \
