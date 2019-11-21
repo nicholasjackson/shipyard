@@ -7,7 +7,7 @@ nav_order: 1
 # Shipyard 
 {: .fs-10}
 
-**VERSION=0.5.2**
+**VERSION=0.5.3**
 
 Shipyard allows you to create local Kubernetes clusters bootstrapped with and Consul and Vault.
 {: .fs-6}
