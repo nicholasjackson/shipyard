@@ -1,6 +1,6 @@
 #!/bin/bash -Ee
 
-VERSION=0.5.2
+VERSION=0.5.1
 
 CONFIG=$HOME/.shipyard
 
@@ -293,7 +293,12 @@ function vs_code() {
   echo "When finished you can stop the VSCode server using the command:"
   echo "docker kill vscode"
   echo ""
-    
+
+
+ if [ $(uname -s) != "Darwin" ]; then
+   local HOST="--add-host dockerhost:`/sbin/ip route|awk '/default/ { print  $3}'`"
+ fi 
+
  LINKS="--network k3d-$NAME"
  CONSUL_ENV="-e CONSUL_HTTP_ADDR=http://k3d-$NAME-server:30443"
  VAULT_ENV="-e VAULT_ADDR=http://k3d-$NAME-server:30445 -e VAULT_TOKEN=root"
@@ -331,6 +336,7 @@ function vs_code() {
     $CONSUL_ENV \
     $VAULT_ENV \
     $LINKS \
+    $HOST \
     $VSCODE_DOCKER_IMAGE \
     >> $LOG_FILE 2>&1
 
