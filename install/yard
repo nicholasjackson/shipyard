@@ -1,6 +1,6 @@
 #!/bin/bash -Ee
 
-VERSION=0.5.0
+VERSION=0.5.1
 
 CONFIG=$HOME/.shipyard
 
@@ -88,7 +88,6 @@ function up() {
   docker run \
     --rm \
     --network host \
-    -it \
     -v "/var/run/docker.sock:/var/run/docker.sock" \
     -v "$CONFIG:/root/.shipyard" \
     -v "$CONFIG/yard:/usr/local/bin/yard" \
@@ -106,7 +105,6 @@ function down() {
   if [[ "$ORIGINALROOT" != "" ]];then
     CONFIG=$ORIGINALROOT  
   fi
-
 
   # get forwarded ports and delete
   FORWARDED=$(docker ps -q --filter "name=^yard-$NAME-")
@@ -296,16 +294,18 @@ function vs_code() {
   echo "docker kill vscode"
   echo ""
     
-  LINKS="--link $NAME-control-plane \
-         --link $NAME-worker"
-  CONSUL_ENV="-e CONSUL_HTTP_ADDR=http://$NAME-worker:30443"
-  VAULT_ENV="-e VAULT_ADDR=http://$NAME-worker:30445 -e VAULT_TOKEN=root"
+ LINKS="--network k3d-$NAME"
+ CONSUL_ENV="-e CONSUL_HTTP_ADDR=http://k3d-$NAME-server:30443"
+ VAULT_ENV="-e VAULT_ADDR=http://k3d-$NAME-server:30445 -e VAULT_TOKEN=root"
 
   # read from state to determine server type
-  if [ $(cat $CONFIG/yards/$NAME/state) == "k3s" ]; then
-    LINKS="--network k3d-$NAME"
-    CONSUL_ENV="-e CONSUL_HTTP_ADDR=http://k3d-$NAME-server:30443"
-    VAULT_ENV="-e VAULT_ADDR=http://k3d-$NAME-server:30445 -e VAULT_TOKEN=root"
+  if [ -f $CONFIG/yards/$NAME/state ]; then
+    if [ $(cat $CONFIG/yards/$NAME/state) == "k8s" ]; then
+    LINKS="--link $NAME-control-plane \
+           --link $NAME-worker"
+    CONSUL_ENV="-e CONSUL_HTTP_ADDR=http://$NAME-worker:30443"
+    VAULT_ENV="-e VAULT_ADDR=http://$NAME-worker:30445 -e VAULT_TOKEN=root"
+    fi
   fi
   
   # Here be dragons, this seems to work, but 
@@ -341,7 +341,9 @@ function vs_code() {
     exit 0
   fi
 
-  xdg-open "http://127.0.0.1:8080/?folder=/home/coder/project"
+  if [ -x "$(command -v xdg-open)" ]; then
+    xdg-open "http://127.0.0.1:8080/?folder=/home/coder/project"
+  fi
 }
 
 function push_image() {
