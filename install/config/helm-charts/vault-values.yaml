@@ -6,5 +6,7 @@ server:
     enabled: true
   standalone:
     enabled: true
+  authDelegator:
+    enabled: true
 ui:
   enabled: true
