@@ -1,4 +1,5 @@
 VERSION=0.5.5
+IMAGE_INIT=nicholasjackson/shipyard-init
 IMAGE_TOOLS=nicholasjackson/consul-k8s-tools
 IMAGE_VSCODE=nicholasjackson/code-server
 
@@ -7,6 +8,16 @@ install_dev:
 	cp ./install/yard $(HOME)/.shipyard
 	rm -rf $(HOME)/.shipyard/config
 	cp -R ./install/config $(HOME)/.shipyard/config
+
+build_init:
+	docker build -t $(IMAGE_INIT):$(VERSION) -f ./dockerfiles/Dockerfile-init ./dockerfiles
+	docker tag $(IMAGE_INIT):$(VERSION) $(IMAGE_INIT):latest
+
+push_init:
+	docker push $(IMAGE_INIT):$(VERSION)
+	docker push $(IMAGE_INIT):latest
+
+build_and_push_init: build_init push_init
 
 build_tools:
 	docker build -t $(IMAGE_TOOLS):$(VERSION) -f ./dockerfiles/Dockerfile-tools ./dockerfiles
@@ -51,6 +62,7 @@ endif
 	echo "$(version)" > ./docs/latest_version.html
 
 	$(MAKE) update_version version=$(version)
+	$(MAKE) build_and_push_init
 	$(MAKE) build_and_push_tools
 	$(MAKE) build_and_push_vscode 
 

@@ -1,3 +1,4 @@
 install/latest
 install/yards/*
 install/shipyard.log
+install/config/helm-charts/vault-helm-master

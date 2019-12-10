@@ -28,6 +28,3 @@ echo "## Instalation complete"
 echo "To create a local Kubernetes and Consul cluster run:"
 echo ""
 echo "yard up"
-
-# Init yard and download docker images
-yard init
