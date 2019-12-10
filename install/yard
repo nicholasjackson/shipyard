@@ -1,6 +1,6 @@
 #!/bin/bash -Ee
 
-VERSION=v0.6.0
+VERSION=0.6.0
 
 CONFIG=$HOME/.shipyard
 
