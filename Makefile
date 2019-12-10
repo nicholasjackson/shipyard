@@ -1,4 +1,4 @@
-VERSION=0.5.5
+VERSION=v0.6.0
 IMAGE_INIT=nicholasjackson/shipyard-init
 IMAGE_TOOLS=nicholasjackson/consul-k8s-tools
 IMAGE_VSCODE=nicholasjackson/code-server
