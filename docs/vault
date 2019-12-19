@@ -13,9 +13,9 @@ echo "
 echo "Set the following environment variables to interact with Kubernetes and Vault"
 echo ""
 
-echo "export KUBECONFIG="$HOME/.shipyard/yards/shipyard/kubeconfig.yml""
-echo "export VAULT_ADDR="http://localhost:8200""
-echo "export VAULT_TOKEN="root""
+echo "export KUBECONFIG=\"\$HOME/.shipyard/yards/shipyard/kubeconfig.yml\""
+echo "export VAULT_ADDR=\"http://localhost:8200\""
+echo "export VAULT_TOKEN=\"root\""
 
 echo "You can also open the Vault UI in your browser"
 echo "http://localhost:8200"
