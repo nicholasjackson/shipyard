@@ -1,0 +1,8 @@
+#!/bin/bash -e
+
+# Check that shipyard is installed if not install it
+if ! [ -x "$(command -v yard)" ]; then
+  curl https://shipyard.demo.gs/install.sh | bash
+fi
+
+shipyard apply --enable-consul=false

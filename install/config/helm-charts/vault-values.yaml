@@ -10,12 +10,3 @@ server:
     enabled: true
 ui:
   enabled: true
-
-injector:
-  enabled: true
-  image: "hashicorp/vault-k8s:0.1.0"
-  tls:
-    caBundle: ""
-    secretName: ""
-    certName: cert.pem
-    keyName: key.pem
