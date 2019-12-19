@@ -5,4 +5,4 @@ if ! [ -x "$(command -v yard)" ]; then
   curl https://shipyard.demo.gs/install.sh | bash
 fi
 
-shipyard apply --enable-consul=false
+yard apply --enable-consul=false
