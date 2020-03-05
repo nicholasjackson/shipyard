@@ -84,7 +84,7 @@ Once complete you will see the following output in your terminal:
 ### Setup complete:
 
 To interact with Kubernetes set your KUBECONFIG environment variable
-export KUBECONFIG="$HOME/.shipyard/shipyard/kubeconfig.yml"
+export KUBECONFIG="$HOME/.shipyard/yards/shipyard/kubeconfig.yml"
 
 Consul can be accessed at: http://localhost:8500
 Kubernetes dashboard can be accessed at: http://localhost:8443
